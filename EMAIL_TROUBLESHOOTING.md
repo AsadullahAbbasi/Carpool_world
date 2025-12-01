@@ -18,7 +18,7 @@ NEXT_PUBLIC_EMAILJS_PUBLIC_KEY=your-public-key-here
 NEXT_PUBLIC_EMAILJS_SERVICE_ID=your-service-id-here
 NEXT_PUBLIC_EMAILJS_VERIFICATION_TEMPLATE_ID=your-template-id-here
 NEXT_PUBLIC_EMAILJS_PASSWORD_RESET_TEMPLATE_ID=your-template-id-here
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_URL=https://vercel.com/asadullahabbasis-projects/carpool-world/4Y6wV8DXw21YHTQnyg5Q2ZAZP41h
 NEXT_PUBLIC_APP_NAME=Carpool App
 ```
 

@@ -124,20 +124,23 @@ export default function DashboardPage() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full max-w-2xl grid-cols-4">
-            <TabsTrigger value="rides" className="flex items-center gap-2">
-              <Car className="w-4 h-4" />
-              All Rides
+            <TabsTrigger value="rides" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+              <Car className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="hidden xs:inline">All Rides</span>
+              <span className="xs:hidden">All</span>
             </TabsTrigger>
-            <TabsTrigger value="my-rides" className="flex items-center gap-2">
-              <Car className="w-4 h-4" />
-              My Rides
+            <TabsTrigger value="my-rides" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+              <Car className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="hidden xs:inline">My Rides</span>
+              <span className="xs:hidden">My</span>
             </TabsTrigger>
-            <TabsTrigger value="communities" className="flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              Communities
+            <TabsTrigger value="communities" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+              <Users className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="hidden xs:inline">Communities</span>
+              <span className="xs:hidden">Comm</span>
             </TabsTrigger>
-            <TabsTrigger value="search" className="flex items-center gap-2">
-              <Search className="w-4 h-4" />
+            <TabsTrigger value="search" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+              <Search className="w-3 h-3 sm:w-4 sm:h-4" />
               Search
             </TabsTrigger>
           </TabsList>

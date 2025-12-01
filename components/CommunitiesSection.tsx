@@ -359,10 +359,11 @@ const CommunitiesSection = ({ selectedCommunity, selectedCommunityName, onSelect
     return (
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full sm:w-auto">
             <Button
               variant="outline"
               size="sm"
+              className="w-full sm:w-auto"
               onClick={() => {
                 if (onBackToCommunities) {
                   onBackToCommunities();
@@ -385,7 +386,7 @@ const CommunitiesSection = ({ selectedCommunity, selectedCommunityName, onSelect
                 setCommunityFilterType(newFilterType);
               }}
             >
-              <SelectTrigger className="w-[200px] sm:w-[220px]">
+              <SelectTrigger className="w-full sm:w-[220px]">
                 <SelectValue placeholder="Filter & Sort" />
               </SelectTrigger>
               <SelectContent
