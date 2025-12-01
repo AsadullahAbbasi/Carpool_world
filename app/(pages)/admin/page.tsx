@@ -418,8 +418,24 @@ export default function AdminPage() {
                 <Label htmlFor="nicNumber">NIC Number</Label>
                 <Input
                   id="nicNumber"
+                  type="text"
+                  inputMode="numeric"
                   value={nicNumber}
-                  onChange={(e) => setNicNumber(e.target.value)}
+                  onChange={(e) => {
+                    // Only allow numeric characters
+                    const value = e.target.value.replace(/\D/g, '');
+                    setNicNumber(value);
+                  }}
+                  onKeyDown={(e) => {
+                    // Prevent non-numeric keys except editing keys
+                    if (!/[0-9]/.test(e.key) && !['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
+                  onWheel={(e) => {
+                    // Prevent scroll from changing number
+                    e.currentTarget.blur();
+                  }}
                   placeholder="Enter 13-digit NIC number"
                   maxLength={15}
                 />

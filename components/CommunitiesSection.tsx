@@ -30,6 +30,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Users, UserPlus, UserMinus, Pencil, Trash2, ArrowLeft } from 'lucide-react';
 import RidesList from './RidesList';
+import ProfileDialog from './ProfileDialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -70,7 +71,42 @@ const CommunitiesSection = ({ selectedCommunity, selectedCommunityName, onSelect
   const [filterBy, setFilterBy] = useState<string>('all');
   const [communityFilterType, setCommunityFilterType] = useState<string>('all');
   const [communitySortBy, setCommunitySortBy] = useState<string>('newest');
+  const [showProfileDialog, setShowProfileDialog] = useState(false);
+  const [profileCompletionMessage, setProfileCompletionMessage] = useState('');
   const { toast } = useToast();
+
+  const checkProfile = async () => {
+    try {
+      const userData: any = await authApi.getCurrentUser();
+      const profile = userData.profile;
+
+      if (profile) {
+        const missingFields: string[] = [];
+        if (!profile.fullName) missingFields.push('Full Name');
+        if (!profile.phone) missingFields.push('Phone Number');
+        if (!profile.gender) missingFields.push('Gender');
+        if (profile.gender !== 'female' && !profile.avatarUrl) missingFields.push('Profile Picture');
+
+        if (missingFields.length > 0) {
+          const message = `To ensure trust and safety in our community, please complete your profile before creating a community. Missing: ${missingFields.join(', ')}.`;
+          setProfileCompletionMessage(message);
+          setShowProfileDialog(true);
+          return false;
+        }
+      }
+      return true;
+    } catch (error) {
+      console.error('Error checking profile:', error);
+      return false;
+    }
+  };
+
+  const handleCreateClick = async () => {
+    const isProfileComplete = await checkProfile();
+    if (isProfileComplete) {
+      setDialogOpen(true);
+    }
+  };
 
   const getCurrentUserId = async () => {
     try {
@@ -466,7 +502,7 @@ const CommunitiesSection = ({ selectedCommunity, selectedCommunityName, onSelect
         </div>
       </div>
 
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h2 className="text-2xl font-semibold">Communities</h2>
         <Dialog
           open={dialogOpen}
@@ -478,12 +514,13 @@ const CommunitiesSection = ({ selectedCommunity, selectedCommunityName, onSelect
             }
           }}
         >
-          <DialogTrigger asChild>
-            <Button className="bg-gradient-to-r from-accent to-accent/90">
-              <Plus className="w-4 h-4 mr-2" />
-              Create Community
-            </Button>
-          </DialogTrigger>
+          <Button
+            onClick={handleCreateClick}
+            className="bg-gradient-to-r from-accent to-accent/90 w-full sm:w-auto"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Create Community
+          </Button>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{editingCommunity ? 'Edit Community' : 'Create a Community'}</DialogTitle>
@@ -633,6 +670,19 @@ const CommunitiesSection = ({ selectedCommunity, selectedCommunityName, onSelect
           })}
         </div>
       )}
+
+      <ProfileDialog
+        open={showProfileDialog}
+        onOpenChange={setShowProfileDialog}
+        completionMessage={profileCompletionMessage}
+        onProfileUpdate={() => {
+          setShowProfileDialog(false);
+          toast({
+            title: 'Profile Updated',
+            description: 'You can now create a community.',
+          });
+        }}
+      />
     </div>
   );
 };

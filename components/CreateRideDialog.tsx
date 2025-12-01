@@ -27,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import ProfileDialog from './ProfileDialog';
 
 interface CreateRideDialogProps {
   children?: React.ReactNode;
@@ -135,31 +136,57 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const [showProfileDialog, setShowProfileDialog] = useState(false);
+  const [profileCompletionMessage, setProfileCompletionMessage] = useState('');
 
-    // Check if profile is complete before allowing ride posting
+  // Check profile function returns boolean indicating if profile is complete
+  const checkProfile = async (): Promise<boolean> => {
     try {
       const userData: any = await authApi.getCurrentUser();
-      if (userData.profile && (!userData.profile.fullName || !userData.profile.phone || !userData.profile.avatarUrl || !userData.profile.gender)) {
-        toast({
-          title: 'Profile Incomplete',
-          description: 'Please complete your profile before posting a ride. Redirecting...',
-          variant: 'destructive',
-        });
-        setTimeout(() => {
-          window.location.href = '/profile-completion';
-        }, 2000);
-        return;
+      const profile = userData.profile;
+
+      if (profile) {
+        // Check required fields based on gender
+        const missingFields: string[] = [];
+
+        if (!profile.fullName) missingFields.push('Full Name');
+        if (!profile.phone) missingFields.push('Phone Number');
+        if (!profile.gender) missingFields.push('Gender');
+
+        // Avatar is required for male/other, optional for female
+        if (profile.gender !== 'female' && !profile.avatarUrl) {
+          missingFields.push('Profile Picture');
+        }
+
+        if (missingFields.length > 0) {
+          const message = `To ensure trust and safety in our community, please complete your profile before creating a ride. Missing: ${missingFields.join(', ')}.`;
+          setProfileCompletionMessage(message);
+          setShowProfileDialog(true); // Open profile dialog
+          return false;
+        }
       }
+      return true;
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Unable to verify profile. Please try again.',
-        variant: 'destructive',
-      });
-      return;
+      console.error('Error checking profile:', error);
+      return false; // Fail safe
     }
+  };
+
+  const handleTriggerClick = async (e: React.MouseEvent) => {
+    // Prevent default to stop any parent handlers or default button behavior
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    const isComplete = await checkProfile();
+    if (isComplete) {
+      setOpen(true);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
     // Validate form
     if (!validateForm()) {
@@ -345,188 +372,211 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <>
       {children ? (
-        <DialogTrigger asChild>{children}</DialogTrigger>
+        <div onClick={handleTriggerClick} className="inline-block cursor-pointer">
+          {children}
+        </div>
       ) : (
-        <DialogTrigger asChild>
-          <Button className="bg-gradient-to-r from-primary to-primary/90">
-            <Plus className="w-4 h-4 mr-2" />
-            Create Ride
-          </Button>
-        </DialogTrigger>
+        <Button
+          onClick={handleTriggerClick}
+          className="bg-gradient-to-r from-primary to-primary/90"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Create Ride
+        </Button>
       )}
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{rideToEdit ? 'Edit Ride' : 'Post a Ride'}</DialogTitle>
-          <DialogDescription>
-            {rideToEdit ? 'Update your ride details' : 'Share your ride or request a ride from the community'}
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label>Type of Ride</Label>
-            <RadioGroup
-              value={formData.type}
-              onValueChange={(value) => setFormData({ ...formData, type: value })}
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="offering" id="offering" />
-                <Label htmlFor="offering">Offering a Ride</Label>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        {/* Mobile-first: full width on mobile, max-w on desktop, scrollable content */}
+        <DialogContent className="w-[calc(100%-1rem)] max-w-2xl max-h-[90vh] overflow-y-auto sm:w-full">
+          <DialogHeader>
+            <DialogTitle>{rideToEdit ? 'Edit Ride' : 'Post a Ride'}</DialogTitle>
+            <DialogDescription>
+              {rideToEdit ? 'Update your ride details' : 'Share your ride or request a ride from the community'}
+            </DialogDescription>
+          </DialogHeader>
+          {/* Mobile-first: adequate spacing between form fields */}
+          <form onSubmit={handleSubmit} className="flex flex-col gap-[1.25rem] sm:gap-[1rem]">
+            <div className="flex flex-col gap-[0.5rem]">
+              <Label>Type of Ride</Label>
+              <RadioGroup
+                value={formData.type}
+                onValueChange={(value) => setFormData({ ...formData, type: value })}
+              >
+                <div className="flex items-center gap-[0.75rem] min-h-[2.75rem]">
+                  <RadioGroupItem value="offering" id="offering" />
+                  <Label htmlFor="offering" className="cursor-pointer">Offering a Ride</Label>
+                </div>
+                <div className="flex items-center gap-[0.75rem] min-h-[2.75rem]">
+                  <RadioGroupItem value="seeking" id="seeking" />
+                  <Label htmlFor="seeking" className="cursor-pointer">Seeking a Ride</Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <div className="flex flex-col gap-[0.5rem]">
+              <Label htmlFor="community">Community (Optional)</Label>
+              <Select
+                value={formData.community_id}
+                onValueChange={(value) => setFormData({ ...formData, community_id: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a community or leave blank for public" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Public (No community)</SelectItem>
+                  {communities.map((community) => (
+                    <SelectItem key={community.id} value={community.id}>
+                      {community.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Mobile-first: stack on mobile, side-by-side on tablet+ */}
+            <div className="grid grid-cols-1 gap-[1.25rem] sm:grid-cols-2 sm:gap-[1rem]">
+              <div className="flex flex-col gap-[0.5rem]">
+                <Label htmlFor="start_location">Start Location</Label>
+                <Input
+                  id="start_location"
+                  placeholder="E.g., Downtown"
+                  value={formData.start_location}
+                  onChange={(e) => {
+                    setFormData({ ...formData, start_location: e.target.value });
+                    if (errors.start_location) setErrors({ ...errors, start_location: '' });
+                  }}
+                  required
+                  className={errors.start_location ? 'border-destructive' : ''}
+                />
+                {errors.start_location && (
+                  <p className="text-base text-destructive leading-relaxed sm:text-sm sm:leading-normal">{errors.start_location}</p>
+                )}
               </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="seeking" id="seeking" />
-                <Label htmlFor="seeking">Seeking a Ride</Label>
+              <div className="flex flex-col gap-[0.5rem]">
+                <Label htmlFor="end_location">End Location</Label>
+                <Input
+                  id="end_location"
+                  placeholder="E.g., Airport"
+                  value={formData.end_location}
+                  onChange={(e) => {
+                    setFormData({ ...formData, end_location: e.target.value });
+                    if (errors.end_location) setErrors({ ...errors, end_location: '' });
+                  }}
+                  required
+                  className={errors.end_location ? 'border-destructive' : ''}
+                />
+                {errors.end_location && (
+                  <p className="text-base text-destructive leading-relaxed sm:text-sm sm:leading-normal">{errors.end_location}</p>
+                )}
               </div>
-            </RadioGroup>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="community">Community (Optional)</Label>
-            <Select
-              value={formData.community_id}
-              onValueChange={(value) => setFormData({ ...formData, community_id: value })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select a community or leave blank for public" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Public (No community)</SelectItem>
-                {communities.map((community) => (
-                  <SelectItem key={community.id} value={community.id}>
-                    {community.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="start_location">Start Location</Label>
-              <Input
-                id="start_location"
-                placeholder="E.g., Downtown"
-                value={formData.start_location}
-                onChange={(e) => {
-                  setFormData({ ...formData, start_location: e.target.value });
-                  if (errors.start_location) setErrors({ ...errors, start_location: '' });
-                }}
-                required
-                className={errors.start_location ? 'border-destructive' : ''}
-              />
-              {errors.start_location && (
-                <p className="text-sm text-destructive">{errors.start_location}</p>
-              )}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="end_location">End Location</Label>
-              <Input
-                id="end_location"
-                placeholder="E.g., Airport"
-                value={formData.end_location}
-                onChange={(e) => {
-                  setFormData({ ...formData, end_location: e.target.value });
-                  if (errors.end_location) setErrors({ ...errors, end_location: '' });
-                }}
-                required
-                className={errors.end_location ? 'border-destructive' : ''}
-              />
-              {errors.end_location && (
-                <p className="text-sm text-destructive">{errors.end_location}</p>
-              )}
-            </div>
-          </div>
 
 
-          {formData.type === 'offering' && (
-            <div className="space-y-2">
-              <Label htmlFor="seats_available">Available Seats</Label>
-              <Input
-                id="seats_available"
-                type="number"
-                min="1"
-                placeholder="Number of seats"
-                value={formData.seats_available}
-                onChange={(e) =>
-                  setFormData({ ...formData, seats_available: e.target.value })
-                }
-              />
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <Label htmlFor="phone">Contact Phone <span className="text-destructive">*</span></Label>
-            <Input
-              id="phone"
-              type="tel"
-              maxLength={15}
-              placeholder="+92 300 1234567 or 03001234567"
-              value={formData.phone}
-              onChange={(e) => {
-                setFormData({ ...formData, phone: e.target.value });
-                if (errors.phone) setErrors({ ...errors, phone: '' });
-              }}
-              required
-              className={errors.phone ? 'border-destructive' : ''}
-            />
-            {errors.phone && (
-              <p className="text-sm text-destructive">{errors.phone}</p>
+            {formData.type === 'offering' && (
+              <div className="flex flex-col gap-[0.5rem]">
+                <Label htmlFor="seats_available">Available Seats</Label>
+                <Input
+                  id="seats_available"
+                  type="number"
+                  min="1"
+                  placeholder="Number of seats"
+                  value={formData.seats_available}
+                  onChange={(e) =>
+                    setFormData({ ...formData, seats_available: e.target.value })
+                  }
+                />
+              </div>
             )}
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="description">Description (optional)</Label>
-            <Textarea
-              id="description"
-              placeholder="Any additional details..."
-              value={formData.description}
-              onChange={(e) =>
-                setFormData({ ...formData, description: e.target.value })
-              }
-              rows={3}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Recurring Days (for daily commutes)</Label>
-            <div className="flex flex-wrap gap-2">
-              {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => (
-                <label
-                  key={day}
-                  className="flex items-center gap-2 cursor-pointer px-3 py-2 border rounded-md hover:bg-accent"
-                >
-                  <input
-                    type="checkbox"
-                    checked={formData.recurring_days.includes(day)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setFormData({
-                          ...formData,
-                          recurring_days: [...formData.recurring_days, day],
-                        });
-                      } else {
-                        setFormData({
-                          ...formData,
-                          recurring_days: formData.recurring_days.filter((d) => d !== day),
-                        });
-                      }
-                    }}
-                    className="rounded"
-                  />
-                  <span className="text-sm">{day.slice(0, 3)}</span>
-                </label>
-              ))}
+            <div className="flex flex-col gap-[0.5rem]">
+              <Label htmlFor="phone">Contact Phone <span className="text-destructive">*</span></Label>
+              <Input
+                id="phone"
+                type="tel"
+                maxLength={15}
+                placeholder="+92 300 1234567 or 03001234567"
+                value={formData.phone}
+                onChange={(e) => {
+                  setFormData({ ...formData, phone: e.target.value });
+                  if (errors.phone) setErrors({ ...errors, phone: '' });
+                }}
+                required
+                className={errors.phone ? 'border-destructive' : ''}
+              />
+              {errors.phone && (
+                <p className="text-base text-destructive leading-relaxed sm:text-sm sm:leading-normal">{errors.phone}</p>
+              )}
             </div>
-          </div>
 
-          <DialogFooter>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Saving...' : rideToEdit ? 'Update Ride' : 'Post Ride'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+            <div className="flex flex-col gap-[0.5rem]">
+              <Label htmlFor="description">Description (optional)</Label>
+              <Textarea
+                id="description"
+                placeholder="Any additional details..."
+                value={formData.description}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
+                rows={3}
+              />
+            </div>
+
+            <div className="flex flex-col gap-[0.5rem]">
+              <Label>Recurring Days (for daily commutes)</Label>
+              {/* Mobile-first: adequate spacing for touch targets */}
+              <div className="flex flex-wrap gap-[0.5rem]">
+                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => (
+                  <label
+                    key={day}
+                    className="flex items-center gap-[0.5rem] cursor-pointer px-[0.75rem] py-[0.625rem] border rounded-md hover:bg-accent min-h-[2.75rem] sm:min-h-[2.5rem] sm:px-[0.625rem] sm:py-[0.5rem]"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={formData.recurring_days.includes(day)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setFormData({
+                            ...formData,
+                            recurring_days: [...formData.recurring_days, day],
+                          });
+                        } else {
+                          setFormData({
+                            ...formData,
+                            recurring_days: formData.recurring_days.filter((d) => d !== day),
+                          });
+                        }
+                      }}
+                      className="rounded w-[1.125rem] h-[1.125rem] sm:w-[1rem] sm:h-[1rem]"
+                    />
+                    <span className="text-base leading-none sm:text-sm">{day.slice(0, 3)}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? 'Saving...' : rideToEdit ? 'Update Ride' : 'Post Ride'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <ProfileDialog
+        open={showProfileDialog}
+        onOpenChange={setShowProfileDialog}
+        completionMessage={profileCompletionMessage}
+        onProfileUpdate={() => {
+          setShowProfileDialog(false);
+          toast({
+            title: 'Profile Updated',
+            description: 'You can now create your ride.',
+          });
+        }}
+      />
+    </>
   );
 };

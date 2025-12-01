@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectLabel, SelectSeparator, SelectGroup } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Navbar from '@/components/Navbar';
 import RidesList from '@/components/RidesList';
 import { CreateRideDialog } from '@/components/CreateRideDialog';
@@ -44,11 +44,8 @@ export default function DashboardPage() {
 
         setSession(data.user);
 
-        // Check if profile is complete (NIC verification is optional)
-        if (data.profile && (!data.profile.fullName || !data.profile.phone || !data.profile.avatarUrl || !data.profile.gender)) {
-          router.push('/profile-completion');
-          return;
-        }
+        // Profile completion is now optional - users can access dashboard
+        // They will be prompted to complete profile when creating a ride
       } catch (error: any) {
         router.push('/auth');
       } finally {
@@ -111,43 +108,48 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-background">
       <Navbar onLogout={handleLogout} />
 
-      <main className="container mx-auto px-4 py-8 max-w-7xl">
+      {/* Mobile-first: responsive padding and spacing */}
+      <main className="container mx-auto px-[1rem] py-[1.5rem] max-w-7xl sm:px-[1.5rem] sm:py-[2rem]">
         <ProfileCompletionBanner />
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+        <div className="mb-[1.5rem] sm:mb-[2rem]">
+          {/* Fluid heading with gradient */}
+          <h1 className="font-bold mb-[0.5rem] bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent text-[clamp(1.75rem,4vw+1rem,2.5rem)] leading-tight">
             Find Your Ride
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-base leading-relaxed sm:text-sm sm:leading-normal">
             Connect with your community and share rides
           </p>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full max-w-2xl grid-cols-4">
-            <TabsTrigger value="rides" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
-              <Car className="w-3 h-3 sm:w-4 sm:h-4" />
+        {/* Mobile-first tabs with adequate spacing */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col gap-[1.5rem] sm:gap-[1.25rem]">
+          {/* Touch-friendly tab list on mobile */}
+          <TabsList className="grid w-full max-w-2xl grid-cols-4 h-auto p-[0.25rem]">
+            <TabsTrigger value="rides" className="flex items-center gap-[0.375rem] text-sm min-h-[2.75rem] px-[0.5rem] sm:min-h-[2.5rem] sm:gap-[0.5rem] sm:text-sm">
+              <Car className="w-[1.125rem] h-[1.125rem] sm:w-[1rem] sm:h-[1rem]" />
               <span className="hidden xs:inline">All Rides</span>
               <span className="xs:hidden">All</span>
             </TabsTrigger>
-            <TabsTrigger value="my-rides" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
-              <Car className="w-3 h-3 sm:w-4 sm:h-4" />
+            <TabsTrigger value="my-rides" className="flex items-center gap-[0.375rem] text-sm min-h-[2.75rem] px-[0.5rem] sm:min-h-[2.5rem] sm:gap-[0.5rem] sm:text-sm">
+              <Car className="w-[1.125rem] h-[1.125rem] sm:w-[1rem] sm:h-[1rem]" />
               <span className="hidden xs:inline">My Rides</span>
               <span className="xs:hidden">My</span>
             </TabsTrigger>
-            <TabsTrigger value="communities" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
-              <Users className="w-3 h-3 sm:w-4 sm:h-4" />
+            <TabsTrigger value="communities" className="flex items-center gap-[0.375rem] text-sm min-h-[2.75rem] px-[0.5rem] sm:min-h-[2.5rem] sm:gap-[0.5rem] sm:text-sm">
+              <Users className="w-[1.125rem] h-[1.125rem] sm:w-[1rem] sm:h-[1rem]" />
               <span className="hidden xs:inline">Communities</span>
               <span className="xs:hidden">Comm</span>
             </TabsTrigger>
-            <TabsTrigger value="search" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
-              <Search className="w-3 h-3 sm:w-4 sm:h-4" />
+            <TabsTrigger value="search" className="flex items-center gap-[0.375rem] text-sm min-h-[2.75rem] px-[0.5rem] sm:min-h-[2.5rem] sm:gap-[0.5rem] sm:text-sm">
+              <Search className="w-[1.125rem] h-[1.125rem] sm:w-[1rem] sm:h-[1rem]" />
               Search
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="my-rides" className="space-y-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <h2 className="text-2xl font-semibold">My Rides</h2>
+          <TabsContent value="my-rides" className="flex flex-col gap-[1rem]">
+            {/* Mobile-first: stack on mobile, horizontal on larger screens */}
+            <div className="flex flex-col gap-[1rem] sm:flex-row sm:justify-between sm:items-center">
+              <h2 className="font-semibold text-[clamp(1.25rem,2.5vw+0.75rem,1.5rem)] leading-tight">My Rides</h2>
               <CreateRideDialog
                 onRideCreated={(ride) => {
                   const event = new CustomEvent('rideCreated', { detail: ride });
@@ -174,81 +176,65 @@ export default function DashboardPage() {
             />
           </TabsContent>
 
-          <TabsContent value="rides" className="space-y-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <h2 className="text-2xl font-semibold">All Rides</h2>
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <Select
-                  value={`${sortBy}-${filterType}`}
-                  onValueChange={(value) => {
-                    const [newSortBy, newFilterType] = value.split('-');
-                    setSortBy(newSortBy);
-                    setFilterType(newFilterType);
-                  }}
-                >
-                  <SelectTrigger className="w-[200px] sm:w-[220px]">
-                    <SelectValue placeholder="Filter & Sort" />
-                  </SelectTrigger>
-                  <SelectContent
-                    side="bottom"
-                    align="start"
-                    sideOffset={4}
-                    avoidCollisions={false}
-                    className="max-h-[300px] overflow-y-auto"
+          <TabsContent value="rides" className="flex flex-col gap-[1rem]">
+            {/* Mobile-first: stack on mobile, horizontal on larger screens */}
+            <div className="flex flex-col gap-[1rem] sm:flex-row sm:justify-between sm:items-center">
+              <h2 className="font-semibold text-[clamp(1.25rem,2.5vw+0.75rem,1.5rem)] leading-tight">All Rides</h2>
+              {/* Mobile: filters on same row, button below. Desktop: all in same row */}
+              <div className="flex flex-col gap-[0.75rem] w-full sm:flex-row sm:items-center sm:gap-[0.5rem] sm:w-auto">
+                {/* Two dropdowns side-by-side on mobile and desktop */}
+                <div className="flex gap-[0.5rem] w-full sm:w-auto">
+                  {/* Sort Dropdown */}
+                  <Select
+                    value={sortBy === 'date' ? 'newest' : sortBy}
+                    onValueChange={(value) => {
+                      setSortBy(value);
+                    }}
                   >
-                    <SelectGroup>
-                      <SelectLabel>All Rides</SelectLabel>
-                      <SelectItem value="newest-all">Newest First - All</SelectItem>
-                      <SelectItem value="oldest-all">Oldest First - All</SelectItem>
-                      <SelectItem value="date-all">Ride Date - All</SelectItem>
-                    </SelectGroup>
-                    <SelectSeparator />
-                    <SelectGroup>
-                      <SelectLabel>Verified Only</SelectLabel>
-                      <SelectItem value="newest-verified">Newest First - Verified</SelectItem>
-                      <SelectItem value="oldest-verified">Oldest First - Verified</SelectItem>
-                      <SelectItem value="date-verified">Ride Date - Verified</SelectItem>
-                    </SelectGroup>
-                    <SelectSeparator />
-                    <SelectGroup>
-                      <SelectLabel>Offering Rides</SelectLabel>
-                      <SelectItem value="newest-offering">Newest First - Offering</SelectItem>
-                      <SelectItem value="oldest-offering">Oldest First - Offering</SelectItem>
-                      <SelectItem value="date-offering">Ride Date - Offering</SelectItem>
-                    </SelectGroup>
-                    <SelectSeparator />
-                    <SelectGroup>
-                      <SelectLabel>Seeking Rides</SelectLabel>
-                      <SelectItem value="newest-seeking">Newest First - Seeking</SelectItem>
-                      <SelectItem value="oldest-seeking">Oldest First - Seeking</SelectItem>
-                      <SelectItem value="date-seeking">Ride Date - Seeking</SelectItem>
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-                <CreateRideDialog
-                  onRideCreated={(ride) => {
-                    // Trigger refresh in RidesList
-                    const event = new CustomEvent('rideCreated', { detail: ride });
-                    window.dispatchEvent(event);
-                  }}
-                />
+                    <SelectTrigger className="flex-1 sm:w-[140px]">
+                      <SelectValue placeholder="Sort" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="newest">Newest First</SelectItem>
+                      <SelectItem value="oldest">Oldest First</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {/* Filter Dropdown */}
+                  <Select
+                    value={filterType}
+                    onValueChange={(value) => {
+                      setFilterType(value);
+                    }}
+                  >
+                    <SelectTrigger className="flex-1 sm:w-[160px]">
+                      <SelectValue placeholder="Filter" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Rides</SelectItem>
+                      <SelectItem value="verified">Verified Only</SelectItem>
+                      <SelectItem value="offering">Offering Rides</SelectItem>
+                      <SelectItem value="seeking">Seeking Rides</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {/* Create Ride button - below filters on mobile, same row on desktop */}
+                <div className="w-full sm:w-auto">
+                  <CreateRideDialog
+                    onRideCreated={(ride) => {
+                      // Trigger refresh in RidesList
+                      const event = new CustomEvent('rideCreated', { detail: ride });
+                      window.dispatchEvent(event);
+                    }}
+                  />
+                </div>
               </div>
             </div>
             <RidesList
               searchQuery={searchQuery}
               selectedCommunity={null}
               selectedCommunityName={null}
-              filterType={filterType === 'verified' ? 'verified' : filterType === 'offering' ? 'offering' : filterType === 'seeking' ? 'seeking' : 'all'}
-              onFilterTypeChange={(type) => {
-                // Extract sortBy and filterType from the combined value
-                if (type.includes('-')) {
-                  const [newSortBy, newFilterType] = type.split('-');
-                  setSortBy(newSortBy);
-                  setFilterType(newFilterType);
-                } else {
-                  setFilterType(type);
-                }
-              }}
+              filterType={filterType}
+              onFilterTypeChange={setFilterType}
               sortBy={sortBy}
               onSortByChange={setSortBy}
               showFilter={false}
@@ -279,54 +265,41 @@ export default function DashboardPage() {
           </TabsContent>
 
           <TabsContent value="search">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-              <h2 className="text-2xl font-semibold">Search Rides</h2>
-              <div className="w-full sm:w-auto">
+            {/* Mobile-first: adequate spacing */}
+            <div className="flex flex-col gap-[1rem] sm:flex-row sm:justify-between sm:items-center mb-[1rem]">
+              <h2 className="font-semibold text-[clamp(1.25rem,2.5vw+0.75rem,1.5rem)] leading-tight">Search Rides</h2>
+              {/* Two dropdowns side-by-side */}
+              <div className="flex gap-[0.5rem] w-full sm:w-auto">
+                {/* Sort Dropdown */}
                 <Select
-                  value={`${sortBy}-${filterType}`}
+                  value={sortBy === 'date' ? 'newest' : sortBy}
                   onValueChange={(value) => {
-                    const [newSortBy, newFilterType] = value.split('-');
-                    setSortBy(newSortBy);
-                    setFilterType(newFilterType);
+                    setSortBy(value);
                   }}
                 >
-                  <SelectTrigger className="w-[200px] sm:w-[220px]">
-                    <SelectValue placeholder="Filter & Sort" />
+                  <SelectTrigger className="flex-1 sm:w-[140px]">
+                    <SelectValue placeholder="Sort" />
                   </SelectTrigger>
-                  <SelectContent
-                    side="bottom"
-                    align="start"
-                    sideOffset={4}
-                    avoidCollisions={false}
-                    className="max-h-[300px] overflow-y-auto"
-                  >
-                    <SelectGroup>
-                      <SelectLabel>All Rides</SelectLabel>
-                      <SelectItem value="newest-all">Newest First - All</SelectItem>
-                      <SelectItem value="oldest-all">Oldest First - All</SelectItem>
-                      <SelectItem value="date-all">Ride Date - All</SelectItem>
-                    </SelectGroup>
-                    <SelectSeparator />
-                    <SelectGroup>
-                      <SelectLabel>Verified Only</SelectLabel>
-                      <SelectItem value="newest-verified">Newest First - Verified</SelectItem>
-                      <SelectItem value="oldest-verified">Oldest First - Verified</SelectItem>
-                      <SelectItem value="date-verified">Ride Date - Verified</SelectItem>
-                    </SelectGroup>
-                    <SelectSeparator />
-                    <SelectGroup>
-                      <SelectLabel>Offering Rides</SelectLabel>
-                      <SelectItem value="newest-offering">Newest First - Offering</SelectItem>
-                      <SelectItem value="oldest-offering">Oldest First - Offering</SelectItem>
-                      <SelectItem value="date-offering">Ride Date - Offering</SelectItem>
-                    </SelectGroup>
-                    <SelectSeparator />
-                    <SelectGroup>
-                      <SelectLabel>Seeking Rides</SelectLabel>
-                      <SelectItem value="newest-seeking">Newest First - Seeking</SelectItem>
-                      <SelectItem value="oldest-seeking">Oldest First - Seeking</SelectItem>
-                      <SelectItem value="date-seeking">Ride Date - Seeking</SelectItem>
-                    </SelectGroup>
+                  <SelectContent>
+                    <SelectItem value="newest">Newest First</SelectItem>
+                    <SelectItem value="oldest">Oldest First</SelectItem>
+                  </SelectContent>
+                </Select>
+                {/* Filter Dropdown */}
+                <Select
+                  value={filterType}
+                  onValueChange={(value) => {
+                    setFilterType(value);
+                  }}
+                >
+                  <SelectTrigger className="flex-1 sm:w-[160px]">
+                    <SelectValue placeholder="Filter" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Rides</SelectItem>
+                    <SelectItem value="verified">Verified Only</SelectItem>
+                    <SelectItem value="offering">Offering Rides</SelectItem>
+                    <SelectItem value="seeking">Seeking Rides</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -343,16 +316,8 @@ export default function DashboardPage() {
                 searchQuery={searchQuery}
                 selectedCommunity={selectedCommunity}
                 selectedCommunityName={selectedCommunityName}
-                filterType={filterType === 'verified' ? 'verified' : filterType === 'offering' ? 'offering' : filterType === 'seeking' ? 'seeking' : 'all'}
-                onFilterTypeChange={(type) => {
-                  if (type.includes('-')) {
-                    const [newSortBy, newFilterType] = type.split('-');
-                    setSortBy(newSortBy);
-                    setFilterType(newFilterType);
-                  } else {
-                    setFilterType(type);
-                  }
-                }}
+                filterType={filterType}
+                onFilterTypeChange={setFilterType}
                 sortBy={sortBy}
                 onSortByChange={setSortBy}
                 showFilter={false}

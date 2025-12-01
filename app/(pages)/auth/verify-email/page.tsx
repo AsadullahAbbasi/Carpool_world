@@ -26,14 +26,18 @@ function VerifyEmailContent() {
       }
 
       try {
-        await authApi.verifyEmail(token);
+        const response: any = await authApi.verifyEmail(token);
         setStatus('success');
+
+        // If the API returns a token, the user is now logged in
+        // The token is automatically stored in cookies by the API
         toast({
           title: 'Email verified!',
-          description: 'Your email has been successfully verified.',
+          description: 'Your email has been successfully verified. Redirecting to dashboard...',
         });
+
         setTimeout(() => {
-          router.push('/auth'); // Redirect to login after verification
+          router.push('/dashboard'); // Redirect to dashboard (auto-logged in)
         }, 2000);
       } catch (error: any) {
         setStatus('error');
@@ -64,7 +68,7 @@ function VerifyEmailContent() {
                 <CheckCircle2 className="w-10 h-10 text-green-600" />
               </div>
               <CardTitle className="text-2xl">Email Verified!</CardTitle>
-              <CardDescription>Your email has been successfully verified. Redirecting...</CardDescription>
+              <CardDescription>Your email has been successfully verified. Logging you in...</CardDescription>
             </>
           )}
           {status === 'error' && (

@@ -17,6 +17,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Check if admin credentials are configured
+    if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
+      console.error('Admin credentials not configured. Please set ADMIN_EMAIL and ADMIN_PASSWORD in .env.local');
+      return NextResponse.json(
+        { error: 'Admin credentials not configured. Please contact the administrator.' },
+        { status: 500 }
+      );
+    }
+
     // Check credentials
     if (email !== ADMIN_EMAIL || password !== ADMIN_PASSWORD) {
       return NextResponse.json(

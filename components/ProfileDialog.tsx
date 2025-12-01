@@ -1,56 +1,107 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { profileApi, storageApi } from '@/lib/api-client';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { profileApi, storageApi, authApi } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import { User, Phone, Upload } from 'lucide-react';
-import { validatePhone, validateRequired } from '@/lib/validation';
-
-
+import { User, Phone, Upload, Mail } from 'lucide-react';
 
 interface ProfileDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onProfileUpdate?: () => void;
+  completionMessage?: string;
 }
 
-const ProfileDialog = ({ open, onOpenChange, onProfileUpdate }: ProfileDialogProps) => {
+// Zod schema for validation
+const profileSchema = z.object({
+  fullName: z
+    .string()
+    .min(1, 'Full name is required')
+    .regex(/^[a-zA-Z0-9\s]+$/, 'Full name can only contain letters, numbers, and spaces'),
+  phone: z
+    .string()
+    .min(1, 'Phone number is required')
+    .regex(/^[\d\+\s\-\(\)]+$/, 'Invalid phone number format'),
+  gender: z.enum(['male', 'female', 'other'], {
+    required_error: 'Gender is required',
+  }),
+  avatarUrl: z.string().optional(),
+  nicNumber: z.string().optional(),
+});
+
+type ProfileFormData = z.infer<typeof profileSchema>;
+
+const ProfileDialog = ({ open, onOpenChange, onProfileUpdate, completionMessage }: ProfileDialogProps) => {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [formData, setFormData] = useState({
-    fullName: '',
+  const [userEmail, setUserEmail] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
 
-    phone: '',
-    avatarUrl: '',
-    gender: '',
-    nicNumber: '',
-  });
   const { toast } = useToast();
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+    watch,
+    setValue,
+  } = useForm<ProfileFormData>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: {
+      fullName: '',
+      phone: '',
+      gender: undefined,
+      avatarUrl: '',
+      nicNumber: '',
+    },
+  });
+
+  const watchedGender = watch('gender');
+  const watchedAvatarUrl = watch('avatarUrl');
 
   useEffect(() => {
     if (open) {
+      setUserEmail('');
+      setAvatarUrl('');
       fetchProfile();
     }
   }, [open]);
 
   const fetchProfile = async () => {
     try {
+      // Fetch user email
+      try {
+        const userData: any = await authApi.getCurrentUser();
+        if (userData?.user?.email) {
+          setUserEmail(userData.user.email);
+        } else {
+          setUserEmail('Not available');
+        }
+      } catch (emailError) {
+        console.error('Error fetching email:', emailError);
+        setUserEmail('Not available');
+      }
+
+      // Fetch profile data
       const { profile } = await profileApi.getProfile();
       if (profile) {
-        setFormData({
+        reset({
           fullName: profile.fullName || '',
-
           phone: profile.phone || '',
+          gender: (profile.gender as 'male' | 'female' | 'other') || undefined,
           avatarUrl: profile.avatarUrl || '',
-          gender: profile.gender || '',
           nicNumber: profile.nicNumber || '',
         });
+        setAvatarUrl(profile.avatarUrl || '');
       }
     } catch (error: any) {
       toast({
@@ -68,8 +119,8 @@ const ProfileDialog = ({ open, onOpenChange, onProfileUpdate }: ProfileDialogPro
     setUploading(true);
     try {
       const { url } = await storageApi.uploadAvatar(file);
-      setFormData({ ...formData, avatarUrl: url });
-
+      setAvatarUrl(url);
+      setValue('avatarUrl', url);
       toast({
         title: 'Avatar uploaded!',
         description: 'Your profile picture has been updated.',
@@ -85,107 +136,109 @@ const ProfileDialog = ({ open, onOpenChange, onProfileUpdate }: ProfileDialogPro
     }
   };
 
-  const validateForm = (): boolean => {
-    const newErrors: Record<string, string> = {};
-
-    const fullNameCheck = validateRequired(formData.fullName, 'Full name');
-    if (!fullNameCheck.valid) newErrors.fullName = fullNameCheck.error || '';
-
-
-
-    const phoneCheck = validatePhone(formData.phone, true);
-    if (!phoneCheck.valid) newErrors.phone = phoneCheck.error || '';
-
-    if (!formData.gender) {
-      newErrors.gender = 'Gender is required';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    // Validate form
-    if (!validateForm()) {
+  const onSubmit = async (data: ProfileFormData) => {
+    // Validate avatar requirement
+    if (data.gender !== 'female' && !data.avatarUrl) {
       toast({
         title: 'Validation Error',
-        description: 'Please fix the errors in the form',
+        description: 'Profile picture is required for male and other genders',
         variant: 'destructive',
       });
       return;
     }
 
     setLoading(true);
-    const previousErrors = { ...errors };
-    setErrors({});
-
-    // Close dialog immediately (optimistic)
     onOpenChange(false);
 
     try {
       await profileApi.updateProfile({
-        fullName: formData.fullName,
-
-        phone: formData.phone,
-        avatarUrl: formData.avatarUrl,
-        gender: formData.gender,
+        fullName: data.fullName,
+        phone: data.phone,
+        avatarUrl: data.avatarUrl || '',
+        gender: data.gender,
       });
 
       toast({
         title: 'Profile updated!',
         description: 'Your profile has been successfully updated.',
       });
-
-      if (onProfileUpdate) {
-        onProfileUpdate();
-      }
+      onProfileUpdate?.();
     } catch (error: any) {
       toast({
         title: 'Error',
         description: error.message || 'Failed to update profile',
         variant: 'destructive',
       });
-      onOpenChange(true); // Reopen on error
-      setErrors(previousErrors);
+      onOpenChange(true);
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle phone input - only allow numbers, +, spaces, dashes, and parentheses
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    // Only allow numbers, +, spaces, dashes, and parentheses
-    const phoneRegex = /^[\d\+\s\-\(\)]*$/;
-    if (phoneRegex.test(value) || value === '') {
-      setFormData({ ...formData, phone: value });
-      if (errors.phone) setErrors({ ...errors, phone: '' });
+  // Handle phone input - prevent numeric increment on scroll/arrow
+  const handlePhoneKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Prevent arrow keys from changing number value
+    if (['ArrowUp', 'ArrowDown'].includes(e.key)) {
+      e.preventDefault();
+    }
+    // Only allow numbers, +, -, spaces, parentheses
+    if (!/[0-9\+\-\(\)\s]/.test(e.key) && !['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
+      e.preventDefault();
     }
   };
 
+  // Handle phone wheel scroll - prevent increment
+  const handlePhoneWheel = (e: React.WheelEvent<HTMLInputElement>) => {
+    e.currentTarget.blur();
+  };
+
+  // Handle name input - alphanumeric only
+  const handleNameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Allow alphanumeric, spaces, and common editing keys
+    if (!/^[a-zA-Z0-9\s]$/.test(e.key) && !['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'Enter'].includes(e.key)) {
+      e.preventDefault();
+    }
+  };
+
+  // Handle name input change - filter to alphanumeric only
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/[^a-zA-Z0-9\s]/g, '');
+    setValue('fullName', value, { shouldValidate: true });
+  };
+
+  // Handle phone input change - filter to allowed characters
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/[^\d\+\s\-\(\)]/g, '');
+    setValue('phone', value, { shouldValidate: true });
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col">
+      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-md max-h-[90vh] flex flex-col">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>Edit Profile</DialogTitle>
           <DialogDescription>Update your profile information</DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6 overflow-y-auto flex-1 pr-2 -mr-2">
+        {completionMessage && (
+          <div className="px-4 py-3 bg-yellow-50 border-b border-yellow-200 text-yellow-800 text-sm">
+            {completionMessage}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5 overflow-y-auto flex-1">
+          {/* Avatar */}
           <div className="flex flex-col items-center gap-4">
             <Avatar className="w-24 h-24">
-              <AvatarImage src={formData.avatarUrl} />
-              <AvatarFallback className="bg-primary/10 text-primary text-2xl">
-                {formData.fullName.charAt(0).toUpperCase() || 'U'}
+              <AvatarImage src={avatarUrl || watchedAvatarUrl} />
+              <AvatarFallback className="bg-primary/10 text-primary text-3xl">
+                {watch('fullName')?.charAt(0).toUpperCase() || 'U'}
               </AvatarFallback>
             </Avatar>
             <Label htmlFor="avatar" className="cursor-pointer">
               <div className="flex items-center gap-2 px-4 py-2 bg-secondary hover:bg-secondary/80 rounded-md transition-colors">
-                <Upload className="w-4 h-4" />
-                {uploading ? 'Uploading...' : 'Change Avatar'}
+                <Upload className="w-5 h-5" />
+                <span>{uploading ? 'Uploading...' : 'Change Avatar'}</span>
               </div>
               <Input
                 id="avatar"
@@ -198,58 +251,70 @@ const ProfileDialog = ({ open, onOpenChange, onProfileUpdate }: ProfileDialogPro
             </Label>
           </div>
 
+          {/* Email - Always visible */}
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none z-10" />
+              <Input
+                id="email"
+                type="email"
+                value={userEmail || 'Loading...'}
+                disabled
+                readOnly
+                className="!pl-12 bg-muted cursor-not-allowed opacity-100"
+                placeholder="Your email address"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">Email cannot be changed</p>
+          </div>
+
+          {/* Full Name - Alphanumeric only */}
           <div className="space-y-2">
             <Label htmlFor="fullName">Full Name</Label>
             <div className="relative">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none z-10" />
               <Input
                 id="fullName"
                 placeholder="John Doe"
-                value={formData.fullName}
-                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                className="pl-10"
+                {...register('fullName')}
+                onChange={handleNameChange}
+                onKeyDown={handleNameKeyDown}
+                className={`!pl-12 ${errors.fullName ? 'border-destructive' : ''}`}
                 required
               />
             </div>
+            {errors.fullName && <p className="text-sm text-destructive">{errors.fullName.message}</p>}
           </div>
 
-
-
+          {/* Phone - Prevent numeric increment */}
           <div className="space-y-2">
             <Label htmlFor="phone">Phone Number</Label>
             <div className="relative">
-              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none z-10" />
               <Input
                 id="phone"
-                type="tel"
+                type="text"
+                inputMode="tel"
                 placeholder="03001234567"
-                value={formData.phone}
+                {...register('phone')}
                 onChange={handlePhoneChange}
-                onKeyDown={(e) => {
-                  // Prevent non-numeric characters except +, -, space, (, )
-                  if (!/[0-9\+\-\(\)\s]/.test(e.key) && !['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
-                    e.preventDefault();
-                  }
-                }}
+                onKeyDown={handlePhoneKeyDown}
+                onWheel={handlePhoneWheel}
                 maxLength={15}
-                className={`pl-10 ${errors.phone ? 'border-destructive' : ''}`}
+                className={`!pl-12 ${errors.phone ? 'border-destructive' : ''}`}
                 required
               />
-              {errors.phone && (
-                <p className="text-sm text-destructive">{errors.phone}</p>
-              )}
             </div>
+            {errors.phone && <p className="text-sm text-destructive">{errors.phone.message}</p>}
           </div>
 
+          {/* Gender */}
           <div className="space-y-2">
             <Label htmlFor="gender">Gender</Label>
             <select
               id="gender"
-              value={formData.gender}
-              onChange={(e) => {
-                setFormData({ ...formData, gender: e.target.value });
-                if (errors.gender) setErrors({ ...errors, gender: '' });
-              }}
+              {...register('gender')}
               className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${errors.gender ? 'border-destructive' : ''}`}
               required
             >
@@ -258,33 +323,38 @@ const ProfileDialog = ({ open, onOpenChange, onProfileUpdate }: ProfileDialogPro
               <option value="female">Female</option>
               <option value="other">Other</option>
             </select>
-            {errors.gender && (
-              <p className="text-sm text-destructive">{errors.gender}</p>
-            )}
+            {errors.gender && <p className="text-sm text-destructive">{errors.gender.message}</p>}
           </div>
 
-          {formData.nicNumber && (
+          {/* NIC - Read only, numeric only if editable */}
+          {watch('nicNumber') && (
             <div className="space-y-2">
               <Label htmlFor="nicNumber">NIC Number</Label>
               <Input
                 id="nicNumber"
-                value={formData.nicNumber}
+                value={watch('nicNumber') || ''}
                 disabled
-                className="bg-muted cursor-not-allowed"
                 readOnly
+                className="bg-muted cursor-not-allowed"
               />
-              <p className="text-xs text-muted-foreground">
-                NIC number is verified and cannot be edited
-              </p>
+              <p className="text-xs text-muted-foreground">NIC number is verified and cannot be edited</p>
             </div>
           )}
 
+          {/* Submit */}
           <div className="flex-shrink-0 pt-4 border-t">
-            <Button type="submit" className="w-full" disabled={loading || !formData.avatarUrl}>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={loading || (watchedGender !== 'female' && !watchedAvatarUrl)}
+            >
               {loading ? 'Updating...' : 'Update Profile'}
             </Button>
-            {!formData.avatarUrl && (
+            {watchedGender && watchedGender !== 'female' && !watchedAvatarUrl && (
               <p className="text-sm text-destructive text-center mt-2">Profile picture is required</p>
+            )}
+            {watchedGender === 'female' && !watchedAvatarUrl && (
+              <p className="text-sm text-muted-foreground text-center mt-2">Profile picture is optional for female users</p>
             )}
           </div>
         </form>

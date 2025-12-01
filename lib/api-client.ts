@@ -84,6 +84,19 @@ export const authApi = {
     return handleResponse(response);
   },
 
+  resendVerification: async () => {
+    const token = getAuthToken();
+    const response = await fetch(`${API_BASE}/auth/resend-verification`, {
+      method: 'POST',
+      headers: {
+        ...getAuthHeaders(),
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      credentials: 'include',
+    });
+    return handleResponse<{ token: string; email: string; message: string }>(response);
+  },
+
   forgotPassword: async (email: string) => {
     const response = await fetch(`${API_BASE}/auth/forgot-password`, {
       method: 'POST',

@@ -1,15 +1,25 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { storageApi, profileApi } from '@/lib/api-client';
+import { useState } from 'react';
+import { storageApi } from '@/lib/api-client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, CheckCircle2, XCircle, Image as ImageIcon, ShieldCheck } from 'lucide-react';
+import { Upload, CheckCircle2, XCircle, Image as ImageIcon } from 'lucide-react';
+import { profileApi } from '@/lib/api-client';
 
 interface NicVerificationProps {
   onVerificationComplete?: () => void;
+}
+
+interface NicVerificationResponse {
+  message?: string;
+  nicVerified: boolean;
+  nicNumber?: string;
+  confidence?: 'high' | 'medium' | 'low';
+  requiresReview?: boolean;
+  error?: string;
 }
 
 const NicVerification = ({ onVerificationComplete }: NicVerificationProps) => {
@@ -19,8 +29,6 @@ const NicVerification = ({ onVerificationComplete }: NicVerificationProps) => {
   const [nicBackImageUrl, setNicBackImageUrl] = useState('');
   const [verifying, setVerifying] = useState(false);
   const [verified, setVerified] = useState(false);
-  const [isAlreadyVerified, setIsAlreadyVerified] = useState(false);
-  const [existingNicNumber, setExistingNicNumber] = useState<string | null>(null);
   const [verificationResult, setVerificationResult] = useState<{
     nicVerified: boolean;
     nicNumber?: string;
@@ -29,23 +37,6 @@ const NicVerification = ({ onVerificationComplete }: NicVerificationProps) => {
   } | null>(null);
   const { toast } = useToast();
 
-  // Check if NIC is already verified
-  useEffect(() => {
-    const checkVerificationStatus = async () => {
-      try {
-        const response: any = await profileApi.getProfile();
-        const profile = response?.profile;
-        if (profile?.nicVerified) {
-          setIsAlreadyVerified(true);
-          setExistingNicNumber(profile.nicNumber || null);
-        }
-      } catch (error) {
-        // Silently fail - user can still try to verify
-      }
-    };
-    checkVerificationStatus();
-  }, []);
-
   const handleImageUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
     type: 'front' | 'back'
@@ -53,49 +44,18 @@ const NicVerification = ({ onVerificationComplete }: NicVerificationProps) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Client-side validation
-    // Check file type
-    if (!file.type.startsWith('image/')) {
-      toast({
-        title: 'Invalid File Type',
-        description: 'Please upload an image file (JPEG, PNG, or WebP)',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // Check file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast({
-        title: 'File Too Large',
-        description: 'Image size must be less than 5MB. Please compress the image and try again.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // Check minimum file size (too small might be invalid)
-    if (file.size < 10 * 1024) { // Less than 10KB is suspicious
-      toast({
-        title: 'File Too Small',
-        description: 'Image appears to be too small. Please ensure you upload a clear, high-quality image.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     const setUploading = type === 'front' ? setUploadingFront : setUploadingBack;
     const setImageUrl = type === 'front' ? setNicFrontImageUrl : setNicBackImageUrl;
 
     setUploading(true);
     try {
-      // Upload to dedicated NIC images endpoint
-      const { url } = await storageApi.uploadNicImage(file, type);
+      // Upload to storage (using avatar upload endpoint for now, you may want a dedicated NIC endpoint)
+      const { url } = await storageApi.uploadAvatar(file);
       setImageUrl(url);
 
       toast({
         title: '✅ Image Uploaded',
-        description: `NIC ${type === 'front' ? 'front' : 'back'} image uploaded successfully! Make sure the image is clear and shows the full NIC card.`,
+        description: `NIC ${type === 'front' ? 'front' : 'back'} image uploaded successfully!`,
       });
     } catch (error: any) {
       toast({
@@ -120,23 +80,33 @@ const NicVerification = ({ onVerificationComplete }: NicVerificationProps) => {
 
     setVerifying(true);
     try {
-      const data: any = await profileApi.verifyNic({
+      const data = await profileApi.verifyNic({
         nicFrontImageUrl,
         nicBackImageUrl,
-      });
+      }) as NicVerificationResponse;
 
-      setVerificationResult(data);
+      setVerificationResult({
+        nicVerified: data.nicVerified,
+        nicNumber: data.nicNumber,
+        confidence: data.confidence,
+        requiresReview: data.requiresReview,
+      });
       setVerified(data.nicVerified || false);
 
       if (data.nicVerified) {
         toast({
           title: '✅ NIC Verified Successfully',
-          description: `Your NIC has been verified. NIC Number: ${data.nicNumber || 'N/A'}`,
+          description: `Your NIC has been verified automatically. NIC Number: ${data.nicNumber || 'N/A'}`,
+        });
+      } else if (data.nicNumber) {
+        toast({
+          title: '⚠️ Verification Pending Review',
+          description: 'NIC number extracted but requires manual review. You can still use the platform.',
         });
       } else {
         toast({
-          title: '📋 Verification Submitted',
-          description: 'Your NIC images have been submitted and are pending admin review. You will be notified once verified.',
+          title: '⚠️ Verification Submitted',
+          description: data.message || 'Your NIC verification has been submitted and is pending admin review.',
         });
       }
 
@@ -144,87 +114,30 @@ const NicVerification = ({ onVerificationComplete }: NicVerificationProps) => {
         onVerificationComplete();
       }
     } catch (error: any) {
-      // Handle already verified error
-      if (error.message?.includes('already verified') || error.error === 'NIC already verified') {
-        setIsAlreadyVerified(true);
-        setExistingNicNumber(error.nicNumber || null);
-        toast({
-          title: 'NIC Already Verified',
-          description: 'Your NIC has already been verified and cannot be changed.',
-        });
-        return;
-      }
-      
-      // Handle other errors
-      {
-        // Extract error message from response if available
-        let errorMessage = error.message || 'Failed to verify NIC';
-        if (error.error) {
-          errorMessage = error.error;
-          if (error.message) {
-            errorMessage += ': ' + error.message;
-          }
-        }
-        
-        toast({
-          title: 'Error',
-          description: errorMessage + '. Please check your internet connection and try again.',
-          variant: 'destructive',
-        });
-      }
-      
-      console.error('NIC verification error:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to verify NIC',
+        variant: 'destructive',
+      });
     } finally {
       setVerifying(false);
     }
   };
 
-  // Show already verified state
-  if (isAlreadyVerified) {
-    return (
-      <Card className="w-full max-w-2xl animate-fade-in border-green-500/50 bg-green-500/5">
-        <CardHeader>
-          <CardTitle className="text-2xl flex items-center gap-2">
-            <ShieldCheck className="w-6 h-6 text-green-600 dark:text-green-400" />
-            NIC Already Verified
-          </CardTitle>
-          <CardDescription>
-            Your NIC has been successfully verified and cannot be changed.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
-            <p className="text-sm font-semibold text-green-900 dark:text-green-100 mb-2">
-              Verified NIC Number:
-            </p>
-            <p className="text-lg font-mono font-bold text-green-800 dark:text-green-200">
-              {existingNicNumber || 'N/A'}
-            </p>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Your NIC verification is permanent and cannot be modified. This helps maintain trust and security in the platform.
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <Card className="w-full max-w-2xl animate-fade-in">
       <CardHeader>
-        <CardTitle className="text-2xl">NIC Verification</CardTitle>
+        <CardTitle className="text-[clamp(1.25rem,2.5vw+0.75rem,1.5rem)]">NIC Verification (Optional)</CardTitle>
         <CardDescription>
           Upload clear photos of your NIC front and back for verification. This helps build trust in the community.
-          <br />
-          <strong className="text-foreground">Note: You can only verify your NIC once. Make sure images are clear and accurate.</strong>
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <CardContent className="flex flex-col gap-[1.25rem] sm:gap-[1.5rem]">
+        <div className="grid grid-cols-1 gap-[1.25rem] md:grid-cols-2 md:gap-[1.5rem]">
           {/* Front Image */}
-          <div className="space-y-2">
+          <div className="flex flex-col gap-[0.5rem]">
             <Label htmlFor="nic-front">NIC Front</Label>
-            <div className="relative border-2 border-dashed border-border rounded-lg p-6 flex flex-col items-center justify-center min-h-[200px] hover:border-foreground/20 transition-colors">
+            <div className="relative border-2 border-dashed border-border rounded-lg p-[1rem] flex flex-col items-center justify-center min-h-[12.5rem] hover:border-foreground/20 transition-colors sm:p-[1.5rem]">
               {nicFrontImageUrl ? (
                 <div className="relative w-full h-full">
                   <img
@@ -244,8 +157,8 @@ const NicVerification = ({ onVerificationComplete }: NicVerificationProps) => {
                 </div>
               ) : (
                 <>
-                  <ImageIcon className="w-12 h-12 text-muted-foreground mb-2" />
-                  <p className="text-sm text-muted-foreground text-center mb-2">
+                  <ImageIcon className="w-[3rem] h-[3rem] text-muted-foreground mb-[0.75rem]" />
+                  <p className="text-base text-muted-foreground text-center mb-[0.75rem] sm:text-sm">
                     Upload NIC front image
                   </p>
                   <input
@@ -264,7 +177,7 @@ const NicVerification = ({ onVerificationComplete }: NicVerificationProps) => {
                       disabled={uploadingFront}
                       onClick={() => document.getElementById('nic-front')?.click()}
                     >
-                      <Upload className="w-4 h-4 mr-2" />
+                      <Upload className="w-[1.25rem] h-[1.25rem] mr-[0.5rem] sm:w-[1rem] sm:h-[1rem]" />
                       {uploadingFront ? 'Uploading...' : 'Choose File'}
                     </Button>
                   </Label>
@@ -274,9 +187,9 @@ const NicVerification = ({ onVerificationComplete }: NicVerificationProps) => {
           </div>
 
           {/* Back Image */}
-          <div className="space-y-2">
+          <div className="flex flex-col gap-[0.5rem]">
             <Label htmlFor="nic-back">NIC Back</Label>
-            <div className="relative border-2 border-dashed border-border rounded-lg p-6 flex flex-col items-center justify-center min-h-[200px] hover:border-foreground/20 transition-colors">
+            <div className="relative border-2 border-dashed border-border rounded-lg p-[1rem] flex flex-col items-center justify-center min-h-[12.5rem] hover:border-foreground/20 transition-colors sm:p-[1.5rem]">
               {nicBackImageUrl ? (
                 <div className="relative w-full h-full">
                   <img
@@ -296,8 +209,8 @@ const NicVerification = ({ onVerificationComplete }: NicVerificationProps) => {
                 </div>
               ) : (
                 <>
-                  <ImageIcon className="w-12 h-12 text-muted-foreground mb-2" />
-                  <p className="text-sm text-muted-foreground text-center mb-2">
+                  <ImageIcon className="w-[3rem] h-[3rem] text-muted-foreground mb-[0.75rem]" />
+                  <p className="text-base text-muted-foreground text-center mb-[0.75rem] sm:text-sm">
                     Upload NIC back image
                   </p>
                   <input
@@ -316,7 +229,7 @@ const NicVerification = ({ onVerificationComplete }: NicVerificationProps) => {
                       disabled={uploadingBack}
                       onClick={() => document.getElementById('nic-back')?.click()}
                     >
-                      <Upload className="w-4 h-4 mr-2" />
+                      <Upload className="w-[1.25rem] h-[1.25rem] mr-[0.5rem] sm:w-[1rem] sm:h-[1rem]" />
                       {uploadingBack ? 'Uploading...' : 'Choose File'}
                     </Button>
                   </Label>
@@ -344,38 +257,52 @@ const NicVerification = ({ onVerificationComplete }: NicVerificationProps) => {
         )}
 
         {verificationResult && (
-          <div className={`p-4 rounded-lg border ${
+          <div className={`p-[1rem] rounded-lg border ${
             verificationResult.nicVerified 
               ? 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800' 
-              : 'bg-yellow-50 dark:bg-yellow-950 border-yellow-200 dark:border-yellow-800'
+              : verificationResult.nicNumber
+              ? 'bg-yellow-50 dark:bg-yellow-950 border-yellow-200 dark:border-yellow-800'
+              : 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800'
           }`}>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-[0.5rem]">
+              <div className="flex items-center gap-[0.5rem]">
                 {verificationResult.nicVerified ? (
-                  <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  <CheckCircle2 className="w-[1.25rem] h-[1.25rem] text-green-600 dark:text-green-400 shrink-0" />
                 ) : (
-                  <XCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                  <XCircle className="w-[1.25rem] h-[1.25rem] text-yellow-600 dark:text-yellow-400 shrink-0" />
                 )}
-                <p className={`font-semibold ${
+                <p className={`font-semibold text-base sm:text-sm ${
                   verificationResult.nicVerified 
                     ? 'text-green-800 dark:text-green-200' 
                     : 'text-yellow-800 dark:text-yellow-200'
                 }`}>
                   {verificationResult.nicVerified 
                     ? 'NIC Verified Successfully' 
-                    : 'Verification Pending Review'}
+                    : verificationResult.nicNumber
+                    ? 'Verification Pending Review'
+                    : 'Could Not Extract NIC Number'}
                 </p>
               </div>
+              {verificationResult.nicNumber && (
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Extracted NIC: <span className="font-mono font-semibold">{verificationResult.nicNumber}</span>
+                </p>
+              )}
+              {verificationResult.confidence && (
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Confidence: <span className="capitalize">{verificationResult.confidence}</span>
+                </p>
+              )}
               {verificationResult.requiresReview && (
-                <p className="text-xs text-muted-foreground">
-                  Your verification will be reviewed by an administrator. You will be notified once verified.
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Your verification will be reviewed by an administrator.
                 </p>
               )}
             </div>
           </div>
         )}
 
-        <p className="text-xs text-muted-foreground text-center">
+        <p className="text-sm text-muted-foreground text-center leading-relaxed sm:text-xs">
           NIC verification is optional. Upload clear, well-lit images of your NIC front and back for best results.
         </p>
       </CardContent>

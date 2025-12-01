@@ -6,9 +6,24 @@ import { Profile } from '@/models/Profile';
 
 export const GET = authMiddleware(async (req) => {
   try {
-    await connectDB();
-
     const userId = req.userId!;
+
+    // Handle admin user - don't query database, return admin user data
+    if (userId === 'admin') {
+      const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
+      return NextResponse.json({
+        user: {
+          id: 'admin',
+          email: adminEmail,
+          emailVerified: true,
+          role: 'admin',
+        },
+        profile: null, // Admin doesn't have a profile
+      });
+    }
+
+    // Regular user - query database
+    await connectDB();
 
     const user = await User.findById(userId);
     if (!user) {

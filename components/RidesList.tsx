@@ -7,12 +7,13 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, Clock, MapPin, Phone, Trash2, Users, Pencil, Star, MessageCircle } from 'lucide-react';
+import { Calendar, Clock, MapPin, Phone, Trash2, Users, Pencil, Star, MessageCircle, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format, formatDistanceToNow } from 'date-fns';
 import { CreateRideDialog } from './CreateRideDialog';
 import ReviewDialog from './ReviewDialog';
 import ReviewsList from './ReviewsList';
+import ProfileDialog from './ProfileDialog';
 import { openWhatsApp } from '@/lib/whatsapp';
 
 
@@ -70,13 +71,18 @@ const RidesList = ({
   const [allRides, setAllRides] = useState<Ride[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isProfileComplete, setIsProfileComplete] = useState(true);
   const [editingRide, setEditingRide] = useState<Ride | null>(null);
   const [reviewingRide, setReviewingRide] = useState<Ride | null>(null);
   const [viewingReviewsRide, setViewingReviewsRide] = useState<Ride | null>(null);
   const [existingReview, setExistingReview] = useState<any>(null);
+  const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const [internalSortBy, setInternalSortBy] = useState<string>('newest');
   const [internalFilterType, setInternalFilterType] = useState<string>('all');
   const [showingDefaultFeed, setShowingDefaultFeed] = useState(false);
+  const [showUnverifiedNote, setShowUnverifiedNote] = useState(true);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const sortBy = externalSortBy !== undefined ? externalSortBy : internalSortBy;
   const filterType = externalFilterType !== undefined ? externalFilterType : internalFilterType;
   const handleSortByChange = onSortByChange || setInternalSortBy;
@@ -87,8 +93,19 @@ const RidesList = ({
     try {
       const data: any = await authApi.getCurrentUser();
       setCurrentUserId(data.user?.id || null);
+
+      const profile = data.profile;
+      if (profile) {
+        const hasRequiredFields =
+          !!(profile.fullName && profile.phone && profile.gender) &&
+          (profile.gender === 'female' ? true : !!profile.avatarUrl);
+        setIsProfileComplete(hasRequiredFields);
+      } else {
+        setIsProfileComplete(false);
+      }
     } catch (error) {
       setCurrentUserId(null);
+      setIsProfileComplete(false);
     }
   };
 
@@ -286,17 +303,51 @@ const RidesList = ({
     }
   };
 
+  const handleReviewButtonClick = (ride: Ride) => {
+    if (!isProfileComplete) {
+      setProfileDialogOpen(true);
+      return;
+    }
+    handleReviewClick(ride);
+  };
+
+  // Swipe to dismiss handler
+  const minSwipeDistance = 50;
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+    if (isLeftSwipe || isRightSwipe) {
+      setShowUnverifiedNote(false);
+    }
+  };
+
+  const actionsDisabled = !isProfileComplete;
+  const actionDisabledTitle = actionsDisabled ? 'Complete your profile to contact or review rides.' : undefined;
+
   if (loading) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      /* Mobile-first: stack on mobile, grid on tablet+ */
+      <div className="grid gap-[1rem] sm:grid-cols-2 lg:grid-cols-3">
         {[1, 2, 3, 4, 5, 6].map((i) => (
           <Card key={i}>
             <CardHeader>
-              <div className="h-4 bg-muted/60 rounded w-1/3 mb-2 animate-pulse-slow"></div>
-              <div className="h-3 bg-muted/60 rounded w-2/3 animate-pulse-slow"></div>
+              <div className="h-[1.25rem] bg-muted/60 rounded w-1/3 mb-[0.5rem] animate-pulse-slow sm:h-[1rem]"></div>
+              <div className="h-[1rem] bg-muted/60 rounded w-2/3 animate-pulse-slow sm:h-[0.875rem]"></div>
             </CardHeader>
             <CardContent>
-              <div className="h-20 bg-muted/60 rounded animate-pulse-slow"></div>
+              <div className="h-[5rem] bg-muted/60 rounded animate-pulse-slow"></div>
             </CardContent>
           </Card>
         ))}
@@ -320,11 +371,28 @@ const RidesList = ({
   const showViewAllButton = selectedCommunity && rides.length === 0 && allRides.length > 0;
 
   if (allRides.length === 0) {
+    if (showOnlyMyRides) {
+      return (
+        <div className="space-y-4">
+          <Card>
+            <CardContent className="py-[3rem] sm:py-[4rem] px-[1rem] sm:px-[1.5rem] flex flex-col items-center justify-center">
+              <p className="text-muted-foreground mb-[1rem] sm:mb-[1.25rem] text-[0.875rem] sm:text-[0.95rem] md:text-base leading-relaxed text-center">
+                No rides have been created.
+              </p>
+              <CreateRideDialog>
+                <Button>Create Ride</Button>
+              </CreateRideDialog>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-4">
         <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground mb-4">
+          <CardContent className="py-[3rem] sm:py-[4rem] px-[1rem] sm:px-[1.5rem] flex flex-col items-center justify-center">
+            <p className="text-muted-foreground mb-[1rem] sm:mb-[1.25rem] text-[0.875rem] sm:text-[0.95rem] md:text-base leading-relaxed text-center">
               No rides found. Be the first to post one!
             </p>
             <CreateRideDialog>
@@ -337,21 +405,39 @@ const RidesList = ({
   }
 
   return (
-    <div className="space-y-6">
-      {hasUnverifiedRides && filterType !== 'verified' && (
-        <Card className="border-yellow-500/30 bg-yellow-500/5">
-          <CardContent className="py-3">
-            <p className="text-sm text-yellow-800 dark:text-yellow-200">
-              <strong>Note:</strong> Some rides show a "NIC Not Verified" badge. These rides are from users who haven't verified their NIC yet.
-              You can filter to show only verified rides using the dropdown above.
-            </p>
+    <div className="flex flex-col gap-[1rem] sm:gap-[1.25rem]">
+      {hasUnverifiedRides && filterType !== 'verified' && showUnverifiedNote && (
+        <Card 
+          className="border-yellow-500/30 bg-yellow-500/5 relative group touch-pan-y select-none"
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+        >
+          <CardContent className="py-[1rem] pr-[3.5rem] sm:py-[1rem] sm:pr-[3rem]">
+            {/* Close button - always top-right */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-[0.5rem] right-[0.25rem] text-yellow-800 dark:text-yellow-200 hover:bg-yellow-500/20 min-h-[2.75rem] min-w-[2.75rem] sm:top-[0.5rem] sm:right-[0.5rem] sm:min-h-[2.5rem] sm:min-w-[2.5rem]"
+              onClick={() => setShowUnverifiedNote(false)}
+              aria-label="Dismiss note"
+            >
+              <X className="h-[1.25rem] w-[1.25rem] sm:h-[1rem] sm:w-[1rem]" />
+            </Button>
+            {/* Vertically centered text with adequate spacing */}
+            <div className="flex items-center min-h-[2.75rem]">
+              <p className="text-base leading-relaxed text-yellow-800 dark:text-yellow-200 sm:text-sm sm:leading-normal">
+                <strong className="font-semibold">Note:</strong> Some rides show a "NIC Not Verified" badge. These rides are from users who haven't verified their NIC yet.
+                You can filter to show only verified rides using the dropdown above.
+              </p>
+            </div>
           </CardContent>
         </Card>
       )}
       {showingDefaultFeed && (
         <Card className="border-muted-foreground/20 bg-muted/5">
-          <CardContent className="py-4 text-center space-y-2">
-            <p className="text-sm font-medium text-muted-foreground">
+          <CardContent className="py-[1rem] sm:py-[1.25rem] text-center px-[1rem] sm:px-[1.5rem]">
+            <p className="text-[0.8125rem] sm:text-[0.875rem] md:text-sm font-medium text-muted-foreground leading-relaxed">
               No ride found matching "{searchQuery}". Showing default feed.
             </p>
           </CardContent>
@@ -359,8 +445,8 @@ const RidesList = ({
       )}
       {showNoResultsMessage && (
         <Card className="border-muted-foreground/20">
-          <CardContent className="py-4 text-center space-y-2">
-            <p className="text-sm text-muted-foreground">
+          <CardContent className="py-[1rem] sm:py-[1.25rem] text-center px-[1rem] sm:px-[1.5rem] space-y-[0.75rem] sm:space-y-[1rem]">
+            <p className="text-[0.8125rem] sm:text-[0.875rem] md:text-sm text-muted-foreground leading-relaxed">
               No results found matching your criteria. Showing all rides instead.
             </p>
             {(onClearCommunity || onClearFilters) && (
@@ -384,8 +470,8 @@ const RidesList = ({
       )}
       {showViewAllButton && (onClearCommunity || onClearFilters) && (
         <Card className="border-muted-foreground/20">
-          <CardContent className="py-4 text-center">
-            <p className="text-sm text-muted-foreground mb-2">
+          <CardContent className="py-[2rem] sm:py-[3rem] px-[1rem] sm:px-[1.5rem] flex flex-col items-center justify-center">
+            <p className="text-[0.875rem] sm:text-[0.95rem] md:text-base text-muted-foreground mb-[1rem] sm:mb-[1.25rem] leading-relaxed text-center">
               No rides found in this community.
             </p>
             <Button
@@ -406,8 +492,24 @@ const RidesList = ({
         </Card>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {displayRides.map((ride) => {
+      {/* Show empty state if user has no rides when viewing "My Rides" */}
+      {showOnlyMyRides && displayRides.length === 0 && allRides.length > 0 && (
+        <Card>
+          <CardContent className="py-[3rem] sm:py-[4rem] px-[1rem] sm:px-[1.5rem] flex flex-col items-center justify-center">
+            <p className="text-muted-foreground mb-[1rem] sm:mb-[1.25rem] text-[0.875rem] sm:text-[0.95rem] md:text-base leading-relaxed text-center">
+              No rides have been created.
+            </p>
+            <CreateRideDialog>
+              <Button>Create Ride</Button>
+            </CreateRideDialog>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Mobile-first grid: single column on mobile, responsive grid on larger screens */}
+      {displayRides.length > 0 && (
+        <div className="grid gap-[1rem] sm:grid-cols-2 lg:grid-cols-3">
+          {displayRides.map((ride) => {
           // Skip temporary optimistic rides that might not have all data
           if (ride.id.startsWith('temp-')) {
             return null;
@@ -415,9 +517,10 @@ const RidesList = ({
           return (
             <Card key={ride.id} className="hover:shadow-medium transition-shadow flex flex-col h-full">
               <CardHeader>
-                <div className="flex items-start justify-between">
+                <div className="flex items-start justify-between gap-[0.5rem]">
                   <div className="flex-1">
-                    <CardTitle className="flex items-center gap-2 flex-wrap">
+                    {/* Mobile-first: wrap badges vertically on small screens */}
+                    <CardTitle className="flex items-center gap-[0.5rem] flex-wrap">
                       <Badge variant={ride.type === 'offering' ? 'default' : 'secondary'}>
                         {ride.type === 'offering' ? 'Offering Ride' : 'Seeking Ride'}
                       </Badge>
@@ -431,22 +534,23 @@ const RidesList = ({
                         </Badge>
                       )}
                     </CardTitle>
-                    <CardDescription className="mt-2">
+                    <CardDescription className="mt-[0.5rem] text-[clamp(0.95rem,1.6vw+0.55rem,1.0625rem)] sm:text-base leading-relaxed">
                       <span>Posted by {ride.profiles?.full_name || 'Unknown'}</span>
                     </CardDescription>
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <p className="text-[clamp(0.875rem,1.4vw+0.5rem,1rem)] text-muted-foreground mt-[0.375rem] leading-relaxed sm:text-sm sm:leading-normal">
                       {formatDistanceToNow(new Date(ride.created_at), { addSuffix: true })}
                     </p>
                   </div>
+                  {/* Touch-friendly action buttons */}
                   {currentUserId === ride.user_id && (
-                    <div className="flex gap-1">
+                    <div className="flex gap-[0.25rem]">
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => setEditingRide(ride)}
                         className="text-primary hover:text-primary"
                       >
-                        <Pencil className="w-4 h-4" />
+                        <Pencil className="w-[1.25rem] h-[1.25rem] sm:w-[1rem] sm:h-[1rem]" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -454,42 +558,43 @@ const RidesList = ({
                         onClick={() => handleDelete(ride.id)}
                         className="text-destructive hover:text-destructive"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-[1.25rem] h-[1.25rem] sm:w-[1rem] sm:h-[1rem]" />
                       </Button>
                     </div>
                   )}
                 </div>
               </CardHeader>
-              <CardContent className="space-y-3 flex-1">
-                <div className="flex items-center gap-2 text-sm">
-                  <MapPin className="w-4 h-4 text-primary" />
+              {/* Mobile-first: adequate spacing for readability */}
+              <CardContent className="flex flex-col gap-[0.75rem] flex-1">
+                <div className="flex items-center gap-[0.5rem] text-[clamp(0.95rem,1.8vw+0.55rem,1.125rem)] flex-wrap sm:text-base">
+                  <MapPin className="w-[1.25rem] h-[1.25rem] text-primary shrink-0 sm:w-[1rem] sm:h-[1rem]" />
                   <span className="font-medium">{ride.start_location}</span>
                   <span className="text-muted-foreground">→</span>
                   <span className="font-medium">{ride.end_location}</span>
                 </div>
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="w-4 h-4" />
+                <div className="flex items-center gap-[0.75rem] text-[clamp(0.9rem,1.5vw+0.5rem,1.05rem)] text-muted-foreground flex-wrap sm:text-sm">
+                  <div className="flex items-center gap-[0.375rem]">
+                    <Calendar className="w-[1.25rem] h-[1.25rem] shrink-0 sm:w-[1rem] sm:h-[1rem]" />
                     {format(new Date(ride.ride_date), 'MMM dd, yyyy')}
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Clock className="w-4 h-4" />
+                  <div className="flex items-center gap-[0.375rem]">
+                    <Clock className="w-[1.25rem] h-[1.25rem] shrink-0 sm:w-[1rem] sm:h-[1rem]" />
                     {ride.ride_time}
                   </div>
                 </div>
                 {ride.seats_available && (
-                  <div className="flex items-center gap-1 text-sm">
-                    <Users className="w-4 h-4 text-accent" />
+                  <div className="flex items-center gap-[0.375rem] text-[clamp(0.9rem,1.4vw+0.5rem,1.05rem)] sm:text-sm">
+                    <Users className="w-[1.25rem] h-[1.25rem] text-accent shrink-0 sm:w-[1rem] sm:h-[1rem]" />
                     <span>{ride.seats_available} seats available</span>
                   </div>
                 )}
                 {ride.description && (
-                  <p className="text-sm text-muted-foreground line-clamp-2">
+                  <p className="text-[clamp(0.95rem,1.6vw+0.55rem,1.1rem)] text-muted-foreground line-clamp-2 leading-relaxed sm:text-base sm:leading-normal">
                     {ride.description}
                   </p>
                 )}
                 {ride.recurring_days && ride.recurring_days.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex flex-wrap gap-1 items-center">
                     <span className="text-xs font-medium">Recurring:</span>
                     {ride.recurring_days.map((day) => (
                       <Badge key={day} variant="outline" className="text-xs">
@@ -499,14 +604,16 @@ const RidesList = ({
                   </div>
                 )}
               </CardContent>
-              <CardFooter className="flex gap-2 flex-wrap">
+              <CardFooter className="flex flex-wrap gap-[0.5rem] w-full">
                 {ride.phone && (
                   <>
                     <Button
                       variant="outline"
                       size="sm"
-                      className="flex-1"
+                      className="flex-1 min-w-[48%] sm:min-w-0"
                       onClick={() => openWhatsApp(ride.phone!, `Hi, I'm interested in your ride from ${ride.start_location} to ${ride.end_location}`)}
+                      disabled={actionsDisabled}
+                      title={actionDisabledTitle}
                     >
                       <MessageCircle className="w-4 h-4 mr-2" />
                       WhatsApp
@@ -514,8 +621,10 @@ const RidesList = ({
                     <Button
                       variant="outline"
                       size="sm"
-                      className="flex-1"
+                      className="flex-1 min-w-[48%] sm:min-w-0"
                       onClick={() => window.open(`tel:${ride.phone}`, '_self')}
+                      disabled={actionsDisabled}
+                      title={actionDisabledTitle}
                     >
                       <Phone className="w-4 h-4 mr-2" />
                       Call
@@ -526,14 +635,19 @@ const RidesList = ({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="flex-1"
-                    onClick={() => handleReviewClick(ride)}
+                    className="flex-1 min-w-[48%] sm:min-w-0"
+                    onClick={() => handleReviewButtonClick(ride)}
                   >
                     <Star className="w-4 h-4 mr-2" />
                     Review
                   </Button>
                 )}
               </CardFooter>
+              {actionsDisabled && (
+                <p className="px-6 pb-2 text-xs text-muted-foreground">
+                  Complete your profile to contact or review rides.
+                </p>
+              )}
               <div className="px-6 pb-4">
                 <Button
                   variant="outline"
@@ -547,7 +661,8 @@ const RidesList = ({
             </Card>
           );
         })}
-      </div>
+        </div>
+      )}
 
       {editingRide && (
         <CreateRideDialog
@@ -576,6 +691,16 @@ const RidesList = ({
           existingReview={existingReview}
         />
       )}
+
+      <ProfileDialog
+        open={profileDialogOpen}
+        onOpenChange={setProfileDialogOpen}
+        completionMessage="Please complete your profile to contact or review rides."
+        onProfileUpdate={() => {
+          setProfileDialogOpen(false);
+          getCurrentUser();
+        }}
+      />
 
       {viewingReviewsRide && (
         <Dialog open={!!viewingReviewsRide} onOpenChange={(open) => !open && setViewingReviewsRide(null)}>

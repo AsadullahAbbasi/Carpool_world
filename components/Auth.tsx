@@ -9,8 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Car, Users } from 'lucide-react';
-import { validateEmail } from '@/lib/validation';
+import { Car, Users, Eye, EyeOff } from 'lucide-react';
+import { validateEmail, validatePassword } from '@/lib/validation';
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -21,6 +21,7 @@ const Auth = () => {
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -29,17 +30,23 @@ const Auth = () => {
     // Check URL for password recovery token
     const token = searchParams.get('token');
     const type = searchParams.get('type');
-    
+    const mode = searchParams.get('mode');
+
     if (type === 'reset-password' && token) {
       setIsPasswordRecovery(true);
       setIsLogin(false);
       setIsForgotPassword(false);
+    } else if (mode === 'signup') {
+      // If mode=signup in URL, show signup form
+      setIsLogin(false);
+      setIsForgotPassword(false);
+      setIsPasswordRecovery(false);
     }
   }, [searchParams]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate email if provided
     if (email) {
       const emailCheck = validateEmail(email);
@@ -53,7 +60,20 @@ const Auth = () => {
         return;
       }
     }
-    
+
+    // Validate password for signup
+    if (!isLogin && !isForgotPassword && !isPasswordRecovery) {
+      const passwordCheck = validatePassword(password, email, fullName);
+      if (!passwordCheck.valid) {
+        toast({
+          title: 'Weak Password',
+          description: passwordCheck.error,
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
     setErrors({});
     setLoading(true);
 
@@ -74,7 +94,7 @@ const Auth = () => {
         router.push('/auth');
       } else if (isForgotPassword) {
         const response = await authApi.forgotPassword(email) as { message: string; resetToken?: string };
-        
+
         // Send email client-side if token is returned
         if (response.resetToken) {
           try {
@@ -82,7 +102,7 @@ const Auth = () => {
           } catch (emailError: any) {
             console.error('Failed to send password reset email:', emailError);
             const errorMessage = emailError?.message || 'Unknown error';
-            
+
             // Check if it's a configuration error
             if (errorMessage.includes('EmailJS configuration is missing') || errorMessage.includes('Missing variables')) {
               toast({
@@ -128,9 +148,9 @@ const Auth = () => {
           }
         }
       } else {
-        const response = await authApi.signup(email, password, fullName) as { 
-          token: string; 
-          verificationToken: string; 
+        const response = await authApi.signup(email, password, fullName) as {
+          token: string;
+          verificationToken: string;
           user: any;
         };
 
@@ -140,7 +160,7 @@ const Auth = () => {
         } catch (emailError: any) {
           console.error('Failed to send verification email:', emailError);
           const errorMessage = emailError?.message || 'Unknown error';
-          
+
           // Check if it's a configuration error
           if (errorMessage.includes('EmailJS configuration is missing') || errorMessage.includes('Missing variables')) {
             toast({
@@ -162,7 +182,7 @@ const Auth = () => {
           title: 'Account created!',
           description: 'Please check your email (including spam folder) to verify your account. The verification link expires in 24 hours.',
         });
-        
+
         // Clear form
         setEmail('');
         setPassword('');
@@ -198,14 +218,25 @@ const Auth = () => {
             {isPasswordRecovery ? (
               <div className="space-y-2">
                 <Label htmlFor="password">New Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pr-10"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
             ) : (
               <>
@@ -242,14 +273,25 @@ const Auth = () => {
                 {!isForgotPassword && (
                   <div className="space-y-2">
                     <Label htmlFor="password">Password</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                    />
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="pr-10"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                        tabIndex={-1}
+                      >
+                        {showPassword ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
                 )}
               </>

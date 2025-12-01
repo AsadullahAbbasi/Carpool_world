@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Search } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 
 interface SearchBarProps {
@@ -46,59 +46,74 @@ const SearchBar = ({ onSearch, onCommunitySelect }: SearchBarProps) => {
     }
   };
 
-  const handleSearch = () => {
-    onSearch(searchQuery);
-    const selectedComm = communities.find(c => c.id === selectedCommunity);
-    onCommunitySelect(selectedCommunity || null, selectedComm?.name || null);
+  const normalizeCommunity = (value: string) => {
+    if (!value || value === 'all') return '';
+    return value;
   };
 
-  const handleReset = () => {
+  const applyFilters = (queryOverride?: string) => {
+    const normalizedCommunity = normalizeCommunity(selectedCommunity);
+    const selectedComm = communities.find(c => c.id === normalizedCommunity);
+    const queryToUse = queryOverride !== undefined ? queryOverride : searchQuery;
+
+    onSearch(queryToUse);
+    onCommunitySelect(normalizedCommunity || null, selectedComm?.name || null);
+  };
+
+  const handleSearch = () => {
+    applyFilters();
+  };
+
+  const handleSearchClear = () => {
     setSearchQuery('');
-    setSelectedCommunity('');
-    onSearch('');
-    onCommunitySelect(null, null);
+    applyFilters('');
+  };
+
+  const handleCommunityChange = (value: string) => {
+    setSelectedCommunity(normalizeCommunity(value));
   };
 
   return (
     <Card>
       <CardContent className="pt-6">
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="search">Search Rides</Label>
+        <div className="flex flex-col gap-4 md:flex-row md:flex-wrap md:items-end">
+          <div className="flex flex-col gap-2 flex-1 min-w-[15rem]">
+            <Label htmlFor="search">Search Rides</Label>
+            <div className="relative">
               <Input
                 id="search"
                 placeholder="Search by location, keywords..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                className="pr-10"
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="community">Filter by Community</Label>
-              <Select value={selectedCommunity} onValueChange={setSelectedCommunity}>
-                <SelectTrigger id="community">
-                  <SelectValue placeholder="All communities" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All communities</SelectItem>
-                  {communities.map((community) => (
-                    <SelectItem key={community.id} value={community.id}>
-                      {community.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="absolute right-0 top-0 h-full px-3 hover:bg-transparent text-muted-foreground hover:text-primary"
+                onClick={searchQuery ? handleSearchClear : handleSearch}
+                aria-label={searchQuery ? 'Clear search' : 'Search'}
+              >
+                {searchQuery ? <X className="h-4 w-4" /> : <Search className="h-4 w-4" />}
+              </Button>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button onClick={handleSearch} className="flex-1">
-              <Search className="w-4 h-4 mr-2" />
-              Search
-            </Button>
-            <Button onClick={handleReset} variant="outline">
-              Reset
-            </Button>
+          <div className="flex flex-col gap-2 flex-1 min-w-[12rem] md:max-w-[16rem]">
+            <Label htmlFor="community">Filter by Community</Label>
+            <Select value={selectedCommunity || 'all'} onValueChange={handleCommunityChange}>
+              <SelectTrigger id="community">
+                <SelectValue placeholder="All communities" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All communities</SelectItem>
+                {communities.map((community) => (
+                  <SelectItem key={community.id} value={community.id}>
+                    {community.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </CardContent>

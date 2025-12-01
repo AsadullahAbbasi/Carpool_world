@@ -24,25 +24,25 @@ export const validatePhone = (phone: string, required: boolean = false): { valid
     }
     return { valid: true }; // Phone is optional if not required
   }
-  
+
   // Remove all spaces, dashes, plus signs, and parentheses
   const cleaned = phone.replace(/[\s\-\(\)\+]/g, '');
-  
+
   // Pakistan mobile number patterns:
   // - 92XXXXXXXXXX (12 digits, starts with 92)
   // - 0XXXXXXXXXX (11 digits, starts with 0) - will be converted to 92 format
   const pakistanMobileRegex = /^(92[0-9]{10}|0[0-9]{10})$/;
-  
+
   if (!pakistanMobileRegex.test(cleaned)) {
     return { valid: false, error: 'Please enter a valid Pakistani mobile number (e.g., 923001234567 or 03001234567)' };
   }
-  
+
   // Normalize: convert 0XXXXXXXXXX to 92XXXXXXXXXX
   let normalized = cleaned;
   if (cleaned.startsWith('0')) {
     normalized = '92' + cleaned.substring(1);
   }
-  
+
   return { valid: true, normalized };
 };
 
@@ -96,6 +96,49 @@ export const validateTime = (time: string): { valid: boolean; error?: string } =
   if (!timeRegex.test(time)) {
     return { valid: false, error: 'Please enter a valid time (HH:MM format)' };
   }
+  return { valid: true };
+};
+
+// Password validation
+export const validatePassword = (password: string, email: string, fullName?: string): { valid: boolean; error?: string } => {
+  if (!password) {
+    return { valid: false, error: 'Password is required' };
+  }
+
+  if (password.length < 8) {
+    return { valid: false, error: 'Password must be at least 8 characters long' };
+  }
+
+  const lowerPassword = password.toLowerCase();
+  const lowerEmail = email.toLowerCase();
+
+  // Check if password matches email exactly
+  if (lowerPassword === lowerEmail) {
+    return { valid: false, error: 'Password cannot be the same as your email' };
+  }
+
+  // Check if password contains the username part of the email
+  const emailUsername = lowerEmail.split('@')[0];
+  if (emailUsername && lowerPassword.includes(emailUsername)) {
+    return { valid: false, error: 'Password cannot contain your email username' };
+  }
+
+  // Check if password contains full name
+  if (fullName) {
+    const lowerName = fullName.toLowerCase();
+    if (lowerPassword === lowerName) {
+      return { valid: false, error: 'Password cannot be the same as your name' };
+    }
+
+    // Check if password contains parts of the name (if name parts are long enough)
+    const nameParts = lowerName.split(' ');
+    for (const part of nameParts) {
+      if (part.length > 3 && lowerPassword.includes(part)) {
+        return { valid: false, error: 'Password cannot contain parts of your name' };
+      }
+    }
+  }
+
   return { valid: true };
 };
 

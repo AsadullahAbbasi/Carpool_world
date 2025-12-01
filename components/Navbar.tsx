@@ -42,34 +42,36 @@ const Navbar = ({ onLogout }: NavbarProps) => {
   return (
     <>
       <nav className="bg-card border-b border-border shadow-soft sticky top-0 z-50 backdrop-blur-sm bg-card/95">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/80 rounded-xl flex items-center justify-center">
-              <Car className="w-6 h-6 text-primary-foreground" />
+        {/* Mobile-first: responsive padding and sizing */}
+        <div className="container mx-auto px-[1rem] py-[0.75rem] flex items-center justify-between sm:px-[1.5rem] sm:py-[1rem]">
+          <div className="flex items-center gap-[0.75rem] sm:gap-[1rem]">
+            <div className="w-[2.5rem] h-[2.5rem] bg-gradient-to-br from-primary to-primary/80 rounded-xl flex items-center justify-center sm:w-[2.75rem] sm:h-[2.75rem]">
+              <Car className="w-[1.5rem] h-[1.5rem] text-primary-foreground sm:w-[1.75rem] sm:h-[1.75rem]" />
             </div>
-            <span className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            {/* Fluid text: scales from 1.25rem to 1.5rem */}
+            <span className="font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent text-[clamp(1.25rem,2.5vw+0.75rem,1.5rem)] leading-none">
               RideShare
             </span>
           </div>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="rounded-full p-0 h-auto">
-                <Avatar className="w-10 h-10 cursor-pointer">
+              <Button variant="ghost" size="icon" className="rounded-full p-0 h-auto min-h-0 min-w-0">
+                <Avatar className="w-[2.75rem] h-[2.75rem] cursor-pointer sm:w-[2.5rem] sm:h-[2.5rem]">
                   <AvatarImage src={profile?.avatar_url || undefined} />
-                  <AvatarFallback className="bg-primary/10 text-primary">
-                    {profile?.full_name?.charAt(0).toUpperCase() || <UserIcon className="w-5 h-5" />}
+                  <AvatarFallback className="bg-primary/10 text-primary text-base sm:text-sm">
+                    {profile?.full_name?.charAt(0).toUpperCase() || <UserIcon className="w-[1.25rem] h-[1.25rem] sm:w-[1rem] sm:h-[1rem]" />}
                   </AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => setProfileDialogOpen(true)} className="cursor-pointer">
-                <UserIcon className="w-4 h-4 mr-2" />
+                <UserIcon className="w-[1.25rem] h-[1.25rem] mr-[0.5rem] sm:w-[1rem] sm:h-[1rem]" />
                 Edit Profile
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onLogout} className="cursor-pointer">
-                <LogOut className="w-4 h-4 mr-2" />
+                <LogOut className="w-[1.25rem] h-[1.25rem] mr-[0.5rem] sm:w-[1rem] sm:h-[1rem]" />
                 Logout
               </DropdownMenuItem>
             </DropdownMenuContent>

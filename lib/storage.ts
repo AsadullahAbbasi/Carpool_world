@@ -24,6 +24,8 @@ export async function uploadFile(
     crop?: string;
     format?: string;
     quality?: string | number;
+
+    
   }
 ): Promise<UploadResult> {
   return new Promise((resolve, reject) => {
