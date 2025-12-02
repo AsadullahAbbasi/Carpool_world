@@ -115,7 +115,8 @@ const RidesList = ({
       const params: any = {};
       if (searchQuery) params.search = searchQuery;
       if (selectedCommunity) params.communityId = selectedCommunity;
-      if (filterType !== 'all') params.type = filterType;
+      // Only pass type to API if it's a valid ride type (not 'verified')
+      if (filterType !== 'all' && filterType !== 'verified') params.type = filterType;
 
       const { rides: fetchedRides }: any = await ridesApi.getRides(params);
 
