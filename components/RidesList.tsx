@@ -459,7 +459,7 @@ const RidesList = ({
                 No rides have been created.
               </p>
               <CreateRideDialog>
-                <Button>Create Ride</Button>
+                <Button className="hidden md:inline-flex">Create Ride</Button>
               </CreateRideDialog>
             </CardContent>
           </Card>

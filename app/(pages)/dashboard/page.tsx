@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -20,6 +20,7 @@ export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCommunity, setSelectedCommunity] = useState<string | null>(null);
   const [selectedCommunityName, setSelectedCommunityName] = useState<string | null>(null);
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState('rides');
   const [filterType, setFilterType] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
@@ -27,6 +28,14 @@ export default function DashboardPage() {
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+
+  // Handle tab from URL query parameter
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['rides', 'my-rides', 'communities', 'search'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     setMounted(true);
@@ -109,7 +118,7 @@ export default function DashboardPage() {
       <Navbar onLogout={handleLogout} />
 
       {/* Mobile-first: responsive padding and spacing */}
-      <main className="container mx-auto px-[1rem] py-[1.5rem] max-w-7xl sm:px-[1.5rem] sm:py-[2rem]">
+      <main className="container mx-auto px-[1rem] py-[1.5rem] pb-24 max-w-7xl sm:px-[1.5rem] sm:py-[2rem] md:pb-[2rem]">
         <ProfileCompletionBanner />
         <div className="mb-[1.5rem] sm:mb-[2rem]">
           {/* Fluid heading with gradient */}
@@ -150,12 +159,6 @@ export default function DashboardPage() {
             {/* Mobile-first: stack on mobile, horizontal on larger screens */}
             <div className="flex flex-col gap-[1rem] sm:flex-row sm:justify-between sm:items-center">
               <h2 className="font-semibold text-[clamp(1.25rem,2.5vw+0.75rem,1.5rem)] leading-tight">My Rides</h2>
-              <CreateRideDialog
-                onRideCreated={(ride) => {
-                  const event = new CustomEvent('rideCreated', { detail: ride });
-                  window.dispatchEvent(event);
-                }}
-              />
             </div>
             <RidesList
               searchQuery=""
@@ -216,16 +219,6 @@ export default function DashboardPage() {
                       <SelectItem value="seeking">Seeking Rides</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
-                {/* Create Ride button - below filters on mobile, same row on desktop */}
-                <div className="w-full sm:w-auto">
-                  <CreateRideDialog
-                    onRideCreated={(ride) => {
-                      // Trigger refresh in RidesList
-                      const event = new CustomEvent('rideCreated', { detail: ride });
-                      window.dispatchEvent(event);
-                    }}
-                  />
                 </div>
               </div>
             </div>

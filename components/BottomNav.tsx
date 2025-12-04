@@ -1,15 +1,26 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Home, Search, PlusCircle, User } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { Home, Users, PlusCircle, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ProfileDialog from './ProfileDialog';
+import { CreateRideDialog } from './CreateRideDialog';
 
 export default function BottomNav() {
     const pathname = usePathname();
+    const router = useRouter();
     const [profileDialogOpen, setProfileDialogOpen] = useState(false);
+    const [createRideDialogOpen, setCreateRideDialogOpen] = useState(false);
+    const [currentTab, setCurrentTab] = useState<string | null>(null);
+
+    // Update tab state when URL changes
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const urlParams = new URLSearchParams(window.location.search);
+            setCurrentTab(urlParams.get('tab'));
+        }
+    }, [pathname]);
 
     // Hide on desktop and public pages (landing, auth)
     const publicPages = ['/', '/auth', '/auth/verify-email', '/auth/reset-password'];
@@ -20,59 +31,95 @@ export default function BottomNav() {
         return null;
     }
 
+    // Check if we're on dashboard and determine active tab from URL
+    const isDashboard = pathname === '/dashboard';
+    const isRidesTab = isDashboard && (!currentTab || currentTab === 'rides' || currentTab === 'my-rides' || currentTab === 'search');
+    const isCommunitiesTab = isDashboard && currentTab === 'communities';
+
+    const handleHomeClick = () => {
+        router.push('/dashboard');
+    };
+
+    const handleCommunitiesClick = () => {
+        router.push('/dashboard?tab=communities');
+    };
+
+    const handlePostClick = () => {
+        setCreateRideDialogOpen(true);
+    };
+
     const navItems = [
-        { href: '/dashboard', icon: Home, label: 'Home', type: 'link' as const },
-        { href: '/dashboard', icon: Search, label: 'Find', type: 'link' as const, tab: 'search' },
-        { href: '/dashboard', icon: PlusCircle, label: 'Post', highlight: true, type: 'link' as const },
-        { icon: User, label: 'Profile', type: 'action' as const, action: () => setProfileDialogOpen(true) },
+        { 
+            icon: Home, 
+            label: 'Home', 
+            type: 'action' as const, 
+            action: handleHomeClick,
+            isActive: isRidesTab
+        },
+        { 
+            icon: Users, 
+            label: 'Communities', 
+            type: 'action' as const, 
+            action: handleCommunitiesClick,
+            isActive: isCommunitiesTab
+        },
+        { 
+            icon: PlusCircle, 
+            label: 'Post', 
+            highlight: true, 
+            type: 'action' as const, 
+            action: handlePostClick
+        },
+        { 
+            icon: User, 
+            label: 'Profile', 
+            type: 'action' as const, 
+            action: () => setProfileDialogOpen(true) 
+        },
     ];
 
     return (
         <>
-            <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border md:hidden pb-safe">
+            <div className="fixed bottom-0 left-0 right-0 z-50 bg-background/70 dark:bg-background/60 backdrop-blur-xl border-t border-border/30 md:hidden pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.1)] dark:shadow-[0_-4px_20px_rgba(0,0,0,0.3)]">
                 <div className="flex items-center justify-around h-16 px-2">
                     {navItems.map((item, index) => {
-                        const isActive = item.type === 'link' && pathname === item.href;
-                        const key = item.type === 'link' ? item.href : `action-${index}`;
-
-                        if (item.type === 'action') {
-                            return (
-                                <button
-                                    key={key}
-                                    onClick={item.action}
-                                    className={cn(
-                                        "flex flex-col items-center justify-center w-full h-full space-y-1",
-                                        "text-muted-foreground hover:text-foreground"
-                                    )}
-                                >
-                                    <item.icon className="w-6 h-6" />
-                                    <span className="text-[10px] font-medium">{item.label}</span>
-                                </button>
-                            );
-                        }
+                        const key = `nav-item-${index}`;
 
                         return (
-                            <Link
+                            <button
                                 key={key}
-                                href={item.href + (item.tab ? `?tab=${item.tab}` : '')}
+                                onClick={item.action}
                                 className={cn(
-                                    "flex flex-col items-center justify-center w-full h-full space-y-1",
-                                    isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                                    "flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors",
+                                    item.isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
                                 )}
                             >
-                                <item.icon
-                                    className={cn(
-                                        "w-6 h-6",
-                                        item.highlight && "text-primary fill-primary/10 w-8 h-8 -mt-4 bg-background rounded-full p-1 border border-border shadow-sm"
-                                    )}
-                                />
+                                {item.highlight ? (
+                                    <div className="relative">
+                                        <item.icon
+                                            className={cn(
+                                                "w-7 h-7 text-primary",
+                                                "bg-primary/10 rounded-full p-1.5 border border-primary/20 shadow-sm"
+                                            )}
+                                        />
+                                    </div>
+                                ) : (
+                                    <item.icon className="w-6 h-6" />
+                                )}
                                 <span className="text-[10px] font-medium">{item.label}</span>
-                            </Link>
+                            </button>
                         );
                     })}
                 </div>
             </div>
             <ProfileDialog open={profileDialogOpen} onOpenChange={setProfileDialogOpen} />
+            <CreateRideDialog 
+                open={createRideDialogOpen} 
+                onOpenChange={setCreateRideDialogOpen}
+                onRideCreated={() => {
+                    setCreateRideDialogOpen(false);
+                }}
+            />
         </>
     );
 }

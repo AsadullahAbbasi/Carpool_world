@@ -492,15 +492,7 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
         <div onClick={handleTriggerClick} className="inline-block cursor-pointer">
           {children}
         </div>
-      ) : (
-        <Button
-          onClick={handleTriggerClick}
-          className="bg-gradient-to-r from-primary to-primary/90"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Create Ride
-        </Button>
-      )}
+      ) : null}
 
       <Dialog open={open} onOpenChange={setOpen}>
         {/* Mobile-first: full width on mobile, max-w on desktop, scrollable content */}

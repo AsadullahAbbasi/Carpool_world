@@ -5,6 +5,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { Toaster as Sonner } from '@/components/ui/sonner';
 import { Providers } from './providers';
 import InstallPrompt from '@/components/InstallPrompt';
+import BottomNav from '@/components/BottomNav';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -54,6 +55,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <Providers>
           {children}
+          <BottomNav />
           <InstallPrompt />
           <Toaster />
           <Sonner />
