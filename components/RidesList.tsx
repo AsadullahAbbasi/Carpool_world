@@ -7,9 +7,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, Clock, MapPin, Phone, Trash2, Users, Pencil, Star, MessageCircle, X } from 'lucide-react';
+import { Calendar, Clock, MapPin, Phone, Trash2, Users, Pencil, Star, MessageCircle, X, Archive, RefreshCw } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { format, formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow, differenceInHours, differenceInMinutes } from 'date-fns';
 import { CreateRideDialog } from './CreateRideDialog';
 import ReviewDialog from './ReviewDialog';
 import ReviewsList from './ReviewsList';
@@ -28,6 +29,7 @@ interface Ride {
   description?: string;
   phone?: string;
   expires_at: string;
+  is_archived?: boolean;
   user_id: string;
   created_at: string;
   community_id?: string | null;
@@ -117,6 +119,10 @@ const RidesList = ({
       if (selectedCommunity) params.communityId = selectedCommunity;
       // Only pass type to API if it's a valid ride type (not 'verified')
       if (filterType !== 'all' && filterType !== 'verified') params.type = filterType;
+      // Pass userId for "My Rides" to show expired/archived rides
+      if (showOnlyMyRides && currentUserId) {
+        params.userId = currentUserId;
+      }
 
       const { rides: fetchedRides }: any = await ridesApi.getRides(params);
 
@@ -170,9 +176,12 @@ const RidesList = ({
   };
 
   useEffect(() => {
-    fetchRides();
     getCurrentUser();
-  }, [searchQuery, selectedCommunity, sortBy, filterType]);
+  }, []);
+
+  useEffect(() => {
+    fetchRides();
+  }, [searchQuery, selectedCommunity, sortBy, filterType, currentUserId, showOnlyMyRides]);
 
   useEffect(() => {
     const handleRideCreatedEvent = (e: CustomEvent) => {
@@ -229,6 +238,75 @@ const RidesList = ({
     setAllRides(prev => prev.map(r => r.id === updatedRide.id ? updatedRide : r));
     // Refresh to sync with server
     fetchRides();
+  };
+
+  // Helper functions for expiry
+  const isRideExpired = (ride: Ride): boolean => {
+    if (ride.is_archived) return true;
+    const expiresAt = new Date(ride.expires_at);
+    return expiresAt < new Date();
+  };
+
+  const getTimeUntilExpiry = (ride: Ride): { hours: number; minutes: number } | null => {
+    if (isRideExpired(ride)) return null;
+    const expiresAt = new Date(ride.expires_at);
+    const now = new Date();
+    const diffMs = expiresAt.getTime() - now.getTime();
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    return { hours, minutes };
+  };
+
+  const shouldShowExpiryWarning = (ride: Ride): boolean => {
+    if (isRideExpired(ride) || ride.is_archived) return false;
+    const timeUntil = getTimeUntilExpiry(ride);
+    if (!timeUntil) return false;
+    return timeUntil.hours < 2; // Show warning within 2 hours
+  };
+
+  const handleExtendRide = async (ride: Ride) => {
+    try {
+      // Calculate new expiry: 24 hours from now (or from new scheduled time if they edit)
+      const newExpiresAt = new Date();
+      newExpiresAt.setHours(newExpiresAt.getHours() + 24);
+      
+      await ridesApi.updateRide(ride.id, {
+        expiresAt: newExpiresAt.toISOString(),
+        isArchived: false,
+      });
+      
+      toast({
+        title: '✅ Ride Reactivated',
+        description: 'Your ride has been reactivated and extended by 24 hours',
+      });
+      fetchRides();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to reactivate ride',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleArchiveRide = async (ride: Ride) => {
+    try {
+      await ridesApi.updateRide(ride.id, {
+        isArchived: true,
+      });
+      
+      toast({
+        title: '📦 Ride Archived',
+        description: 'Your ride has been archived',
+      });
+      fetchRides();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to archive ride',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleReviewClick = async (ride: Ride) => {
@@ -534,6 +612,12 @@ const RidesList = ({
                           NIC Not Verified
                         </Badge>
                       )}
+                      {/* Show Expired tag only in My Rides for expired rides */}
+                      {showOnlyMyRides && isRideExpired(ride) && !ride.is_archived && (
+                        <Badge variant="outline" className="text-xs bg-orange-100 text-orange-800 border-orange-300">
+                          Expired
+                        </Badge>
+                      )}
                     </CardTitle>
                     <CardDescription className="mt-[0.5rem] text-[clamp(0.95rem,1.6vw+0.55rem,1.0625rem)] sm:text-base leading-relaxed">
                       <span>Posted by {ride.profiles?.full_name || 'Unknown'}</span>
@@ -567,6 +651,57 @@ const RidesList = ({
               </CardHeader>
               {/* Mobile-first: adequate spacing for readability */}
               <CardContent className="flex flex-col gap-[0.75rem] flex-1">
+                {/* Expiry warning banner */}
+                {shouldShowExpiryWarning(ride) && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-md p-2 text-sm text-yellow-800">
+                    <p className="font-medium">
+                      ⏰ This ride expires in {(() => {
+                        const timeUntil = getTimeUntilExpiry(ride);
+                        if (!timeUntil) return '';
+                        if (timeUntil.hours > 0) {
+                          return `${timeUntil.hours} hour${timeUntil.hours > 1 ? 's' : ''} ${timeUntil.minutes} min`;
+                        }
+                        return `${timeUntil.minutes} min`;
+                      })()} – tap to keep it active or repost
+                    </p>
+                  </div>
+                )}
+                {/* Expired ride banner with reactivate switch */}
+                {isRideExpired(ride) && !ride.is_archived && currentUserId === ride.user_id && showOnlyMyRides && (
+                  <div className="bg-orange-50 border border-orange-200 rounded-md p-3 text-sm text-orange-800">
+                    <div className="flex items-center justify-between">
+                      <p className="font-medium">⏰ This ride has expired</p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs">Reactivate</span>
+                        <Switch
+                          checked={false}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              handleExtendRide(ride);
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {/* Archived ride banner */}
+                {ride.is_archived && currentUserId === ride.user_id && showOnlyMyRides && (
+                  <div className="bg-orange-50 border border-orange-200 rounded-md p-3 text-sm text-orange-800 space-y-2">
+                    <p className="font-medium">📦 This ride is archived</p>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleExtendRide(ride)}
+                        className="flex-1 text-xs"
+                      >
+                        <RefreshCw className="w-3 h-3 mr-1" />
+                        Reactivate
+                      </Button>
+                    </div>
+                  </div>
+                )}
                 <div className="flex items-center gap-[0.5rem] text-[clamp(0.95rem,1.8vw+0.55rem,1.125rem)] flex-wrap sm:text-base">
                   <MapPin className="w-[1.25rem] h-[1.25rem] text-primary shrink-0 sm:w-[1rem] sm:h-[1rem]" />
                   <span className="font-medium">{ride.start_location}</span>

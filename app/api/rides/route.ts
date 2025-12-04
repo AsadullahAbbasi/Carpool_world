@@ -32,6 +32,7 @@ function transformRide(ride: any, profile?: any) {
     description: ride.description,
     phone: ride.phone,
     expires_at: ride.expiresAt ? new Date(ride.expiresAt).toISOString() : ride.expires_at,
+    is_archived: ride.isArchived || false,
     user_id: ride.userId || ride.user_id,
     created_at: ride.createdAt ? new Date(ride.createdAt).toISOString() : ride.created_at,
     updated_at: ride.updatedAt ? new Date(ride.updatedAt).toISOString() : ride.updated_at,
@@ -52,6 +53,7 @@ export const GET = async (req: NextRequest) => {
     const searchQuery = searchParams.get('search') || '';
     const communityId = searchParams.get('communityId');
     const type = searchParams.get('type');
+    const userId = searchParams.get('userId'); // For "My Rides" - show expired/archived rides
 
     let query: any = {};
     
@@ -61,6 +63,14 @@ export const GET = async (req: NextRequest) => {
     
     if (type && type !== 'all') {
       query.type = type;
+    }
+
+    // If userId is provided (My Rides), don't filter expired/archived
+    // Otherwise, filter out expired and archived rides
+    if (!userId) {
+      query.isArchived = { $ne: true };
+      const now = new Date();
+      query.expiresAt = { $gt: now };
     }
 
     let rides = await Ride.find(query)

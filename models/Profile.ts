@@ -15,6 +15,8 @@ export interface IProfile extends Document {
   // Temporary fields for pending verification
   nicFrontImageUrl?: string; // Temporary: pending verification
   nicBackImageUrl?: string; // Temporary: pending verification
+  // Settings
+  disableAutoExpiry?: boolean; // If true, rides won't auto-expire
   createdAt: Date;
   updatedAt: Date;
 }
@@ -50,6 +52,11 @@ const profileSchema = new Schema<IProfile>(
     // Temporary fields for pending verification
     nicFrontImageUrl: String, // Temporary: pending verification
     nicBackImageUrl: String, // Temporary: pending verification
+    // Settings
+    disableAutoExpiry: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

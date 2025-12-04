@@ -3,34 +3,51 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { authApi } from '@/lib/api-client';
+import { sendVerificationEmail } from '@/lib/email-client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { CheckCircle2, XCircle } from 'lucide-react';
+import { CheckCircle2, XCircle, Mail } from 'lucide-react';
 
 import { Suspense } from 'react';
 
 function VerifyEmailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
+  const [status, setStatus] = useState<'loading' | 'success' | 'error' | 'checking'>('checking');
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [sendingEmail, setSendingEmail] = useState(false);
   const { toast } = useToast();
 
+  // Check if user is already logged in and verify email
   useEffect(() => {
-    const verify = async () => {
+    const checkAuthAndVerify = async () => {
+      try {
+        const data: any = await authApi.getCurrentUser();
+        if (data && data.user) {
+          // User is already logged in, redirect to dashboard
+          router.push('/dashboard');
+          return;
+        }
+      } catch (error) {
+        // User is not logged in, continue with verification
+      }
+      
+      // Check for verification token in URL
       const token = searchParams.get('token');
-
       if (!token) {
         setStatus('error');
         return;
       }
 
+      // Start verification
+      setStatus('loading');
+      
       try {
         const response: any = await authApi.verifyEmail(token);
         setStatus('success');
 
-        // If the API returns a token, the user is now logged in
-        // The token is automatically stored in cookies by the API
+        // The API now auto-logs in the user and sets the cookie
         toast({
           title: 'Email verified!',
           description: 'Your email has been successfully verified. Redirecting to dashboard...',
@@ -49,14 +66,43 @@ function VerifyEmailContent() {
       }
     };
 
-    verify();
+    checkAuthAndVerify();
   }, [searchParams, router, toast]);
+
+  // Timer countdown for resend cooldown
+  useEffect(() => {
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => setResendCooldown((c) => c - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendCooldown]);
+
+  const handleResendEmail = async () => {
+    try {
+      setSendingEmail(true);
+      const { token, email } = await authApi.resendVerification();
+      await sendVerificationEmail(email, token);
+      toast({
+        title: 'Email sent',
+        description: 'Check your inbox for the verification link.',
+      });
+      setResendCooldown(90); // 1.5 minutes = 90 seconds
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to send email',
+        variant: 'destructive',
+      });
+    } finally {
+      setSendingEmail(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          {status === 'loading' && (
+          {(status === 'loading' || status === 'checking') && (
             <>
               <CardTitle className="text-2xl">Verifying Email...</CardTitle>
               <CardDescription>Please wait while we verify your email address</CardDescription>
@@ -82,8 +128,29 @@ function VerifyEmailContent() {
           )}
         </CardHeader>
         {status === 'error' && (
-          <CardContent className="text-center">
-            <Button onClick={() => router.push('/auth')}>Go to Login</Button>
+          <CardContent className="text-center space-y-4">
+            <div className="flex flex-col gap-3">
+              <Button 
+                onClick={handleResendEmail}
+                disabled={resendCooldown > 0 || sendingEmail}
+                className="w-full"
+                variant="default"
+              >
+                <Mail className="w-4 h-4 mr-2" />
+                {sendingEmail 
+                  ? 'Sending...' 
+                  : resendCooldown > 0 
+                    ? `Resend in ${Math.floor(resendCooldown / 60)}:${String(resendCooldown % 60).padStart(2, '0')}` 
+                    : 'Resend Verification Email'}
+              </Button>
+              <Button 
+                onClick={() => router.push('/auth')}
+                variant="outline"
+                className="w-full"
+              >
+                Go to Login
+              </Button>
+            </div>
           </CardContent>
         )}
       </Card>

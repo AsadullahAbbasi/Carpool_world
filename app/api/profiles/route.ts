@@ -10,6 +10,7 @@ const updateProfileSchema = z.object({
   phone: z.string().optional(),
   avatarUrl: z.string().optional(),
   gender: z.enum(['male', 'female', 'other']).optional(),
+  disableAutoExpiry: z.boolean().optional(),
   // NIC number cannot be edited - it's only set via verification
 });
 
@@ -35,6 +36,7 @@ export const GET = authMiddleware(async (req) => {
         nicVerified: profile.nicVerified || false,
         front: profile.front,
         back: profile.back,
+        disableAutoExpiry: profile.disableAutoExpiry || false,
       },
     });
   } catch (error: any) {
@@ -62,6 +64,7 @@ export const PUT = authMiddleware(async (req) => {
       if (data.phone !== undefined) profile.phone = data.phone;
       if (data.avatarUrl !== undefined) profile.avatarUrl = data.avatarUrl;
       if (data.gender !== undefined) profile.gender = data.gender;
+      if (data.disableAutoExpiry !== undefined) profile.disableAutoExpiry = data.disableAutoExpiry;
       // NIC number cannot be edited - it's only set via verification endpoint
       await profile.save();
     } else {
@@ -89,6 +92,7 @@ export const PUT = authMiddleware(async (req) => {
         nicVerified: profile.nicVerified || false,
         front: profile.front,
         back: profile.back,
+        disableAutoExpiry: profile.disableAutoExpiry || false,
       },
     });
   } catch (error: any) {

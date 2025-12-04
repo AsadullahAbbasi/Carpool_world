@@ -92,7 +92,7 @@ export default function LandingPage() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-4">
               <Button
                 size="lg"
-                className="text-lg w-full md:w-auto md:px-8 py-6"
+                className="text-lg w-full  md:px-8 py-3"
                 onClick={() => router.push('/auth')}
               >
                 Get Started
@@ -101,7 +101,7 @@ export default function LandingPage() {
               <Button
                 size="lg"
                 variant="outline"
-                className="text-lg w-full md:w-auto md:px-8 py-6"
+                className="text-lg w-full  md:px-8 py-3"
                 onClick={() => router.push('/dashboard')}
               >
                 Browse Rides
@@ -182,6 +182,46 @@ export default function LandingPage() {
         </div>
       </section>
 
+
+
+        {/* Communities Preview */}
+        <section className="py-20 md:px-4">
+        <div className="container mx-auto max-w-6xl">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold mb-4">Communities</h2>
+            <p className="text-muted-foreground text-lg">
+              Join communities and connect with people in your area
+            </p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {communities.slice(0, 3).map((community) => (
+              <Card
+                key={community.id}
+                className="hover:shadow-medium transition-all duration-200 hover:scale-[1.02] cursor-pointer"
+                onClick={() => router.push('/auth')}
+              >
+                <CardHeader>
+                  <CardTitle>{community.name}</CardTitle>
+                  <CardDescription>{community.description || 'No description'}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Users className="w-4 h-4" />
+                    {community.member_count || 0} members
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <div className="text-center mt-8">
+            <Button variant="outline" onClick={() => router.push('/auth')}>
+              Browse Communities
+              <ArrowRight className="ml-2 w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      </section>
+
       {/* Student Perks Section */}
       <section className="py-20 md:px-4 bg-primary/5">
         <div className="container mx-auto max-w-6xl">
@@ -229,43 +269,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Communities Preview */}
-      <section className="py-20 md:px-4">
-        <div className="container mx-auto max-w-6xl">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold mb-4">Communities</h2>
-            <p className="text-muted-foreground text-lg">
-              Join communities and connect with people in your area
-            </p>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {communities.slice(0, 3).map((community) => (
-              <Card
-                key={community.id}
-                className="hover:shadow-medium transition-all duration-200 hover:scale-[1.02] cursor-pointer"
-                onClick={() => router.push('/auth')}
-              >
-                <CardHeader>
-                  <CardTitle>{community.name}</CardTitle>
-                  <CardDescription>{community.description || 'No description'}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Users className="w-4 h-4" />
-                    {community.member_count || 0} members
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-          <div className="text-center mt-8">
-            <Button variant="outline" onClick={() => router.push('/auth')}>
-              Browse Communities
-              <ArrowRight className="ml-2 w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-      </section>
+    
 
       {/* Features Section */}
       <section className="py-20 md:px-4 bg-muted/30">
@@ -421,7 +425,7 @@ export default function LandingPage() {
           </p>
           <Button
             size="lg"
-            className="text-lg px-8 py-6 bg-white text-black hover:bg-white/90 font-medium shadow-xl"
+            className="text-lg px-8 py-3 bg-white text-black hover:bg-white/90 font-medium shadow-xl"
             onClick={() => router.push('/auth')}
           >
             Sign Up Free

@@ -204,6 +204,7 @@ export const profileApi = {
     avatarUrl?: string;
     gender?: string;
     nicNumber?: string;
+    disableAutoExpiry?: boolean;
   }) => {
     const token = getAuthToken();
     const response = await fetch(`${API_BASE}/profiles`, {
@@ -242,11 +243,13 @@ export const ridesApi = {
     search?: string;
     communityId?: string;
     type?: string;
+    userId?: string;
   }) => {
     const queryParams = new URLSearchParams();
     if (params?.search) queryParams.append('search', params.search);
     if (params?.communityId) queryParams.append('communityId', params.communityId);
     if (params?.type) queryParams.append('type', params.type);
+    if (params?.userId) queryParams.append('userId', params.userId);
 
     const token = getAuthToken();
     const response = await fetch(`${API_BASE}/rides?${queryParams.toString()}`, {
@@ -296,6 +299,7 @@ export const ridesApi = {
     description?: string;
     phone?: string;
     expiresAt: string;
+    isArchived?: boolean;
     communityId?: string | null;
     recurringDays?: string[];
   }>) => {

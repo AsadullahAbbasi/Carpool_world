@@ -15,6 +15,7 @@ const updateRideSchema = z.object({
   description: z.string().optional(),
   phone: z.string().optional(),
   expiresAt: z.string().optional(),
+  isArchived: z.boolean().optional(),
   communityId: z.string().nullable().optional(),
   recurringDays: z.array(z.string()).optional(),
 });
@@ -32,6 +33,7 @@ function transformRide(ride: any, profile?: any) {
     description: ride.description,
     phone: ride.phone,
     expires_at: ride.expiresAt ? new Date(ride.expiresAt).toISOString() : ride.expires_at,
+    is_archived: ride.isArchived || false,
     user_id: ride.userId || ride.user_id,
     created_at: ride.createdAt ? new Date(ride.createdAt).toISOString() : ride.created_at,
     updated_at: ride.updatedAt ? new Date(ride.updatedAt).toISOString() : ride.updated_at,
@@ -78,6 +80,7 @@ export const PUT = authMiddleware(async (req) => {
     if (data.description !== undefined) ride.description = data.description;
     if (data.phone !== undefined) ride.phone = data.phone;
     if (data.expiresAt !== undefined) ride.expiresAt = new Date(data.expiresAt);
+    if (data.isArchived !== undefined) ride.isArchived = data.isArchived;
     if (data.communityId !== undefined) ride.communityId = data.communityId ?? undefined;
     if (data.recurringDays !== undefined) ride.recurringDays = data.recurringDays || [];
 

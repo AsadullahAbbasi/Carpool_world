@@ -54,6 +54,7 @@ export const GET = authMiddleware(async (req) => {
         back: profile.back,
         nicFrontImageUrl: profile.nicFrontImageUrl,
         nicBackImageUrl: profile.nicBackImageUrl,
+        disableAutoExpiry: profile.disableAutoExpiry || false,
       } : null,
     });
   } catch (error: any) {

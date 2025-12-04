@@ -35,6 +35,7 @@ const profileSchema = z.object({
   }),
   avatarUrl: z.string().optional(),
   nicNumber: z.string().optional(),
+  disableAutoExpiry: z.boolean().optional(),
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
@@ -62,6 +63,7 @@ const ProfileDialog = ({ open, onOpenChange, onProfileUpdate, completionMessage 
       gender: undefined,
       avatarUrl: '',
       nicNumber: '',
+      disableAutoExpiry: false,
     },
   });
 
@@ -100,6 +102,7 @@ const ProfileDialog = ({ open, onOpenChange, onProfileUpdate, completionMessage 
           gender: (profile.gender as 'male' | 'female' | 'other') || undefined,
           avatarUrl: profile.avatarUrl || '',
           nicNumber: profile.nicNumber || '',
+          disableAutoExpiry: profile.disableAutoExpiry || false,
         });
         setAvatarUrl(profile.avatarUrl || '');
       }
@@ -156,6 +159,7 @@ const ProfileDialog = ({ open, onOpenChange, onProfileUpdate, completionMessage 
         phone: data.phone,
         avatarUrl: data.avatarUrl || '',
         gender: data.gender,
+        disableAutoExpiry: data.disableAutoExpiry,
       });
 
       toast({
@@ -340,6 +344,30 @@ const ProfileDialog = ({ open, onOpenChange, onProfileUpdate, completionMessage 
               <p className="text-xs text-muted-foreground">NIC number is verified and cannot be edited</p>
             </div>
           )}
+
+          {/* Settings Section */}
+          <div className="space-y-2 pt-2 border-t">
+            <Label className="text-base font-semibold">Settings</Label>
+            
+            {/* Auto-Expiry Toggle */}
+            <div className="flex items-center justify-between p-3 border rounded-md">
+              <div className="flex-1">
+                <Label htmlFor="disableAutoExpiry" className="text-sm font-medium cursor-pointer">
+                  Keep my rides active until I remove them
+                </Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Turn off automatic expiry for your rides (off by default)
+                </p>
+              </div>
+              <input
+                id="disableAutoExpiry"
+                type="checkbox"
+                checked={watch('disableAutoExpiry') || false}
+                onChange={(e) => setValue('disableAutoExpiry', e.target.checked)}
+                className="w-5 h-5 rounded cursor-pointer"
+              />
+            </div>
+          </div>
 
           {/* Submit */}
           <div className="flex-shrink-0 pt-4 border-t">

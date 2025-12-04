@@ -11,6 +11,7 @@ export interface IRide extends Document {
   description?: string;
   phone?: string;
   expiresAt: Date;
+  isArchived?: boolean;
   communityId?: string;
   recurringDays?: string[];
   createdAt: Date;
@@ -52,6 +53,11 @@ const rideSchema = new Schema<IRide>(
     expiresAt: {
       type: Date,
       required: true,
+      index: true,
+    },
+    isArchived: {
+      type: Boolean,
+      default: false,
       index: true,
     },
     communityId: {
