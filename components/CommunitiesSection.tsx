@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { communitiesApi, authApi } from '@/lib/api-client';
+import { communitiesApi, authApi, communityRequestsApi } from '@/lib/api-client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,7 +28,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Users, UserPlus, UserMinus, Pencil, Trash2, ArrowLeft } from 'lucide-react';
+import { Plus, Users, UserPlus, UserMinus, Trash2, ArrowLeft } from 'lucide-react';
 import RidesList from './RidesList';
 import ProfileDialog from './ProfileDialog';
 import {
@@ -65,7 +65,6 @@ const CommunitiesSection = ({ selectedCommunity, selectedCommunityName, onSelect
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingCommunity, setEditingCommunity] = useState<Community | null>(null);
   const [formData, setFormData] = useState({ name: '', description: '' });
   const [sortBy, setSortBy] = useState<string>('newest');
   const [filterBy, setFilterBy] = useState<string>('all');
@@ -174,104 +173,40 @@ const CommunitiesSection = ({ selectedCommunity, selectedCommunityName, onSelect
       return;
     }
 
-    // Close dialog immediately (optimistic)
-    const wasEditing = !!editingCommunity;
+    if (!formData.description.trim()) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please explain why you want to create this community',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const communityName = formData.name;
     const communityDescription = formData.description;
-    const editingCommunityId = editingCommunity?.id;
-    const editingCommunityData = editingCommunity ? { ...editingCommunity } : null;
 
     setDialogOpen(false);
-    setEditingCommunity(null);
     setFormData({ name: '', description: '' });
 
     try {
-      if (wasEditing && editingCommunityId && editingCommunityData) {
-        // Optimistic update for edit
-        const updatedCommunity = {
-          ...editingCommunityData,
-          name: communityName,
-          description: communityDescription || null,
-        };
-        setCommunities(prev => prev.map(c => c.id === editingCommunityId ? updatedCommunity : c));
+      // Submit community request
+      await communityRequestsApi.createRequest({
+        name: communityName,
+        description: communityDescription,
+      });
 
-        // Make API call in background
-        communitiesApi.updateCommunity(editingCommunityId, {
-          name: communityName,
-          description: communityDescription || undefined,
-        }).then(() => {
-          toast({
-            title: '✅ Community Updated!',
-            description: `${communityName} has been updated successfully.`,
-          });
-          fetchCommunities();
-          fetchUserCommunities();
-        }).catch((error: any) => {
-          // Rollback on error
-          if (editingCommunityData) {
-            setCommunities(prev => prev.map(c => c.id === editingCommunityId ? editingCommunityData : c));
-          }
-          toast({
-            title: 'Error',
-            description: error.message || 'Failed to update community',
-            variant: 'destructive',
-          });
-          setDialogOpen(true);
-          if (editingCommunityData) {
-            setEditingCommunity(editingCommunityData);
-            setFormData({ name: communityName, description: communityDescription });
-          }
-        });
-      } else {
-        // Optimistic create
-        const tempId = `temp-${Date.now()}`;
-        const newCommunity: Community = {
-          id: tempId,
-          name: communityName,
-          description: communityDescription || null,
-          created_by: currentUserId || '',
-          created_at: new Date().toISOString(),
-        };
-        setCommunities(prev => [newCommunity, ...prev]);
-
-        // Make API call in background
-        communitiesApi.createCommunity({
-          name: communityName,
-          description: communityDescription || undefined,
-        }).then((response) => {
-          toast({
-            title: '🎉 Community Created!',
-            description: `Welcome to ${communityName}. You've been auto-joined as admin.`,
-          });
-          // Replace optimistic community with real one
-          if (response.community) {
-            setCommunities(prev => prev.map(c => c.id === tempId ? response.community : c));
-          }
-          fetchCommunities();
-          fetchUserCommunities();
-        }).catch((error: any) => {
-          // Rollback on error
-          setCommunities(prev => prev.filter(c => c.id !== tempId));
-          toast({
-            title: 'Error',
-            description: error.message || 'Failed to create community',
-            variant: 'destructive',
-          });
-          setDialogOpen(true);
-          setFormData({ name: communityName, description: communityDescription });
-        });
-      }
+      toast({
+        title: '✅ Request Submitted!',
+        description: `Your request to create "${communityName}" has been submitted. An admin will review it shortly.`,
+      });
     } catch (error: any) {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to save community',
+        description: error.message || 'Failed to submit community request',
         variant: 'destructive',
       });
       setDialogOpen(true);
-      if (wasEditing && editingCommunityData) {
-        setEditingCommunity(editingCommunityData);
-        setFormData({ name: communityName, description: communityDescription });
-      }
+      setFormData({ name: communityName, description: communityDescription });
     }
   };
 
@@ -302,14 +237,6 @@ const CommunitiesSection = ({ selectedCommunity, selectedCommunityName, onSelect
     }
   };
 
-  const handleEditCommunity = (community: Community) => {
-    setEditingCommunity(community);
-    setFormData({
-      name: community.name,
-      description: community.description || '',
-    });
-    setDialogOpen(true);
-  };
 
   const handleJoinLeave = async (communityId: string, isJoined: boolean, isCreator: boolean) => {
     try {
@@ -509,7 +436,6 @@ const CommunitiesSection = ({ selectedCommunity, selectedCommunityName, onSelect
           onOpenChange={(open) => {
             setDialogOpen(open);
             if (!open) {
-              setEditingCommunity(null);
               setFormData({ name: '', description: '' });
             }
           }}
@@ -523,11 +449,9 @@ const CommunitiesSection = ({ selectedCommunity, selectedCommunityName, onSelect
           </Button>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{editingCommunity ? 'Edit Community' : 'Create a Community'}</DialogTitle>
+              <DialogTitle>Request a New Community</DialogTitle>
               <DialogDescription>
-                {editingCommunity
-                  ? 'Update your community details'
-                  : 'Start a new community for your neighborhood or interest group'}
+                Submit a request to create a new community. An admin will review your request.
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleCreateCommunity} className="space-y-4">
@@ -542,18 +466,19 @@ const CommunitiesSection = ({ selectedCommunity, selectedCommunityName, onSelect
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="description">Description (optional)</Label>
+                <Label htmlFor="description">Why do you want to create this community? *</Label>
                 <Textarea
                   id="description"
-                  placeholder="What is this community about?"
+                  placeholder="Please explain why you want to create this community, what it's for, and who it's for..."
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  rows={3}
+                  rows={4}
+                  required
                 />
               </div>
               <DialogFooter>
                 <Button type="submit" className="w-full">
-                  {editingCommunity ? 'Update Community' : 'Create Community'}
+                  Submit Request
                 </Button>
               </DialogFooter>
             </form>
@@ -591,13 +516,6 @@ const CommunitiesSection = ({ selectedCommunity, selectedCommunityName, onSelect
                     </CardTitle>
                     {community.created_by === currentUserId && (
                       <div className="flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEditCommunity(community)}
-                        >
-                          <Pencil className="w-4 h-4 text-muted-foreground hover:text-primary" />
-                        </Button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button variant="ghost" size="icon">

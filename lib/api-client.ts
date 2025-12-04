@@ -449,6 +449,99 @@ export const communitiesApi = {
   },
 };
 
+// Community Requests API
+export interface CommunityRequest {
+  id: string;
+  name: string;
+  description: string;
+  status: 'pending' | 'approved' | 'rejected';
+  requestedBy: string;
+  requestedByEmail?: string;
+  requestedByUsername?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  rejectionReason?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CommunityRequestResponse {
+  request: CommunityRequest;
+}
+
+export interface CommunityRequestsResponse {
+  requests: CommunityRequest[];
+}
+
+export const communityRequestsApi = {
+  createRequest: async (data: { name: string; description: string }): Promise<CommunityRequestResponse> => {
+    const token = getAuthToken();
+    const response = await fetch(`${API_BASE}/community-requests`, {
+      method: 'POST',
+      headers: {
+        ...getAuthHeaders(),
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+    return handleResponse<CommunityRequestResponse>(response);
+  },
+
+  getRequests: async (status?: 'pending' | 'approved' | 'rejected'): Promise<CommunityRequestsResponse> => {
+    const token = getAuthToken();
+    const url = status 
+      ? `${API_BASE}/community-requests?status=${status}`
+      : `${API_BASE}/community-requests`;
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        ...getAuthHeaders(),
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      credentials: 'include',
+    });
+    return handleResponse<CommunityRequestsResponse>(response);
+  },
+
+  updateRequest: async (id: string, data: { status: 'approved' | 'rejected'; rejectionReason?: string }) => {
+    const token = getAuthToken();
+    const response = await fetch(`${API_BASE}/community-requests/${id}`, {
+      method: 'PUT',
+      headers: {
+        ...getAuthHeaders(),
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+    return handleResponse(response);
+  },
+
+  getMyRequests: async (): Promise<CommunityRequestsResponse> => {
+    const token = getAuthToken();
+    if (!token) {
+      throw new Error('Not authenticated');
+    }
+    // Get current user ID from token
+    try {
+      const userData: any = await authApi.getCurrentUser();
+      const userId = userData.user.id;
+      const response = await fetch(`${API_BASE}/community-requests?userId=${userId}`, {
+        method: 'GET',
+        headers: {
+          ...getAuthHeaders(),
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        credentials: 'include',
+      });
+      return handleResponse<CommunityRequestsResponse>(response);
+    } catch (error) {
+      throw new Error('Failed to get user ID');
+    }
+  },
+};
+
 // Reviews API
 export const reviewsApi = {
   getReviews: async (params: { rideId?: string; driverId?: string }) => {
