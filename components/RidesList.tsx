@@ -767,12 +767,14 @@ const RidesList = ({
                     </Button>
                   </>
                 )}
-                {currentUserId !== ride.user_id && ride.type === 'offering' && (
+                {currentUserId !== ride.user_id && (
                   <Button
                     variant="outline"
                     size="sm"
                     className="flex-1 min-w-[48%] sm:min-w-0"
                     onClick={() => handleReviewButtonClick(ride)}
+                    disabled={actionsDisabled}
+                    title={actionDisabledTitle}
                   >
                     <Star className="w-4 h-4 mr-2" />
                     Review
