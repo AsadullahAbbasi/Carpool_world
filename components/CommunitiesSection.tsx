@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { communitiesApi, authApi, communityRequestsApi } from '@/lib/api-client';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -544,7 +544,6 @@ const CommunitiesSection = ({ selectedCommunity, selectedCommunityName, onSelect
                       </div>
                     )}
                   </div>
-                  {community.description && <CardDescription>{community.description}</CardDescription>}
                 </CardHeader>
                 <CardContent className="space-y-3 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">

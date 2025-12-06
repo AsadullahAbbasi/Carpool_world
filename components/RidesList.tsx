@@ -7,10 +7,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, Clock, MapPin, Phone, Trash2, Users, Pencil, Star, MessageCircle, X, Archive, RefreshCw } from 'lucide-react';
+import { Calendar, MapPin, Phone, Trash2, Users, Pencil, Star, MessageCircle, X, Archive, RefreshCw } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { format, formatDistanceToNow, differenceInHours, differenceInMinutes } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { CreateRideDialog } from './CreateRideDialog';
 import ReviewDialog from './ReviewDialog';
 import ReviewsList from './ReviewsList';
@@ -245,23 +245,6 @@ const RidesList = ({
     if (ride.is_archived) return true;
     const expiresAt = new Date(ride.expires_at);
     return expiresAt < new Date();
-  };
-
-  const getTimeUntilExpiry = (ride: Ride): { hours: number; minutes: number } | null => {
-    if (isRideExpired(ride)) return null;
-    const expiresAt = new Date(ride.expires_at);
-    const now = new Date();
-    const diffMs = expiresAt.getTime() - now.getTime();
-    const hours = Math.floor(diffMs / (1000 * 60 * 60));
-    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-    return { hours, minutes };
-  };
-
-  const shouldShowExpiryWarning = (ride: Ride): boolean => {
-    if (isRideExpired(ride) || ride.is_archived) return false;
-    const timeUntil = getTimeUntilExpiry(ride);
-    if (!timeUntil) return false;
-    return timeUntil.hours < 2; // Show warning within 2 hours
   };
 
   const handleExtendRide = async (ride: Ride) => {
@@ -651,21 +634,6 @@ const RidesList = ({
               </CardHeader>
               {/* Mobile-first: adequate spacing for readability */}
               <CardContent className="flex flex-col gap-[0.75rem] flex-1">
-                {/* Expiry warning banner */}
-                {shouldShowExpiryWarning(ride) && (
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-md p-2 text-sm text-yellow-800">
-                    <p className="font-medium">
-                      ⏰ This ride expires in {(() => {
-                        const timeUntil = getTimeUntilExpiry(ride);
-                        if (!timeUntil) return '';
-                        if (timeUntil.hours > 0) {
-                          return `${timeUntil.hours} hour${timeUntil.hours > 1 ? 's' : ''} ${timeUntil.minutes} min`;
-                        }
-                        return `${timeUntil.minutes} min`;
-                      })()} – tap to keep it active or repost
-                    </p>
-                  </div>
-                )}
                 {/* Expired ride banner with reactivate switch */}
                 {isRideExpired(ride) && !ride.is_archived && currentUserId === ride.user_id && showOnlyMyRides && (
                   <div className="bg-orange-50 border border-orange-200 rounded-md p-3 text-sm text-orange-800">
@@ -712,10 +680,6 @@ const RidesList = ({
                   <div className="flex items-center gap-[0.375rem]">
                     <Calendar className="w-[1.25rem] h-[1.25rem] shrink-0 sm:w-[1rem] sm:h-[1rem]" />
                     {format(new Date(ride.ride_date), 'MMM dd, yyyy')}
-                  </div>
-                  <div className="flex items-center gap-[0.375rem]">
-                    <Clock className="w-[1.25rem] h-[1.25rem] shrink-0 sm:w-[1rem] sm:h-[1rem]" />
-                    {ride.ride_time}
                   </div>
                 </div>
                 {ride.seats_available && (
