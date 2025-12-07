@@ -85,6 +85,7 @@ const RidesList = ({
   const [showUnverifiedNote, setShowUnverifiedNote] = useState(true);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const [userLoaded, setUserLoaded] = useState(false);
   const sortBy = externalSortBy !== undefined ? externalSortBy : internalSortBy;
   const filterType = externalFilterType !== undefined ? externalFilterType : internalFilterType;
   const handleSortByChange = onSortByChange || setInternalSortBy;
@@ -108,6 +109,8 @@ const RidesList = ({
     } catch (error) {
       setCurrentUserId(null);
       setIsProfileComplete(false);
+    } finally {
+      setUserLoaded(true);
     }
   };
 
@@ -180,8 +183,11 @@ const RidesList = ({
   }, []);
 
   useEffect(() => {
-    fetchRides();
-  }, [searchQuery, selectedCommunity, sortBy, filterType, currentUserId, showOnlyMyRides]);
+    // Only fetch rides after user data has been loaded to prevent double fetching
+    if (userLoaded) {
+      fetchRides();
+    }
+  }, [searchQuery, selectedCommunity, sortBy, filterType, currentUserId, showOnlyMyRides, userLoaded]);
 
   useEffect(() => {
     const handleRideCreatedEvent = (e: CustomEvent) => {
