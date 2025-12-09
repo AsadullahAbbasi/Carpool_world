@@ -54,6 +54,8 @@ export const GET = async (req: NextRequest) => {
     const communityId = searchParams.get('communityId');
     const type = searchParams.get('type');
     const userId = searchParams.get('userId'); // For "My Rides" - show expired/archived rides
+    const sortBy = searchParams.get('sortBy') || 'newest';
+    const filterType = searchParams.get('filterType') || 'all';
 
     let query: any = {};
     
@@ -61,20 +63,32 @@ export const GET = async (req: NextRequest) => {
       query.communityId = communityId;
     }
     
-    if (type && type !== 'all') {
+    // Only apply type filter if it's a valid ride type (not 'all' or 'verified')
+    if (type && type !== 'all' && type !== 'verified') {
       query.type = type;
     }
 
-    // If userId is provided (My Rides), don't filter expired/archived
-    // Otherwise, filter out expired and archived rides
-    if (!userId) {
+    // If userId is provided (My Rides), filter by user and don't filter expired/archived
+    if (userId) {
+      query.userId = userId;
+    } else {
+      // Otherwise, filter out expired and archived rides
       query.isArchived = { $ne: true };
       const now = new Date();
       query.expiresAt = { $gt: now };
     }
 
+    // Determine sort order
+    let sortOrder: any = { createdAt: -1 }; // Default to newest first
+    if (sortBy === 'oldest') {
+      sortOrder = { createdAt: 1 };
+    } else if (sortBy === 'date') {
+      // For date sorting, we'll sort by rideDate and rideTime
+      sortOrder = { rideDate: 1, rideTime: 1 };
+    }
+
     let rides = await Ride.find(query)
-      .sort({ createdAt: -1 })
+      .sort(sortOrder)
       .lean();
 
     // Apply text search if provided
@@ -95,7 +109,31 @@ export const GET = async (req: NextRequest) => {
       })
     );
 
-    return NextResponse.json({ rides: ridesWithProfiles });
+    // Apply client-side filters
+    let filteredRides = ridesWithProfiles;
+
+    // Filter by verification status if "verified" filter is selected
+    if (filterType === 'verified') {
+      filteredRides = filteredRides.filter((ride: any) => ride.profiles?.nic_verified === true);
+    }
+
+    // Apply sorting (if not already sorted by MongoDB query, or for date sorting)
+    if (sortBy === 'date') {
+      // Date sorting needs to be done client-side since it combines rideDate and rideTime
+      filteredRides.sort((a: any, b: any) => {
+        const dateA = new Date(`${a.ride_date} ${a.ride_time}`);
+        const dateB = new Date(`${b.ride_date} ${b.ride_time}`);
+        return dateA.getTime() - dateB.getTime();
+      });
+    } else if (sortBy === 'oldest') {
+      // Ensure oldest-first sorting (MongoDB already sorted, but ensure consistency)
+      filteredRides.sort((a: any, b: any) => {
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      });
+    }
+    // 'newest' is already sorted by MongoDB query
+
+    return NextResponse.json({ rides: filteredRides });
   } catch (error: any) {
     console.error('Get rides error:', error);
     return NextResponse.json(

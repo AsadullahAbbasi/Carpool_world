@@ -53,21 +53,33 @@ interface Community {
 }
 
 interface CommunitiesSectionProps {
+  initialCommunities?: Community[];
+  initialUserCommunities?: string[];
+  initialUser?: { id: string; email: string; emailVerified: boolean } | null;
   selectedCommunity?: string | null;
   selectedCommunityName?: string | null;
   onSelectCommunity: (communityId: string | null, communityName?: string | null) => void;
   onBackToCommunities?: () => void;
 }
 
-const CommunitiesSection = ({ selectedCommunity, selectedCommunityName, onSelectCommunity, onBackToCommunities }: CommunitiesSectionProps) => {
-  const [communities, setCommunities] = useState<Community[]>([]);
-  const [userCommunities, setUserCommunities] = useState<Set<string>>(new Set());
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+const CommunitiesSection = ({ 
+  initialCommunities = [],
+  initialUserCommunities = [],
+  initialUser = null,
+  selectedCommunity, 
+  selectedCommunityName, 
+  onSelectCommunity, 
+  onBackToCommunities 
+}: CommunitiesSectionProps) => {
+  const [communities, setCommunities] = useState<Community[]>(initialCommunities);
+  const [userCommunities, setUserCommunities] = useState<Set<string>>(new Set(initialUserCommunities));
+  const [currentUserId, setCurrentUserId] = useState<string | null>(initialUser?.id || null);
+  const [loading, setLoading] = useState(initialCommunities.length === 0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [formData, setFormData] = useState({ name: '', description: '' });
   const [sortBy, setSortBy] = useState<string>('newest');
   const [filterBy, setFilterBy] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState('');
   const [communityFilterType, setCommunityFilterType] = useState<string>('all');
   const [communitySortBy, setCommunitySortBy] = useState<string>('newest');
   const [showProfileDialog, setShowProfileDialog] = useState(false);
@@ -153,11 +165,25 @@ const CommunitiesSection = ({ selectedCommunity, selectedCommunityName, onSelect
 
   useEffect(() => {
     const init = async () => {
-      await Promise.all([fetchCommunities(), fetchUserCommunities()]);
-      const userId = await getCurrentUserId();
-      setCurrentUserId(userId);
+      // Skip initial fetch if we have server data
+      const hasInitialData = initialCommunities.length > 0;
+      
+      if (hasInitialData) {
+        // We have server data, just get userId if not already set
+        if (!currentUserId) {
+          const userId = await getCurrentUserId();
+          setCurrentUserId(userId);
+        }
+        setLoading(false);
+      } else {
+        // No server data, fetch everything
+        await Promise.all([fetchCommunities(), fetchUserCommunities()]);
+        const userId = await getCurrentUserId();
+        setCurrentUserId(userId);
+      }
     };
     init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleCreateCommunity = async (e: React.FormEvent) => {
@@ -288,34 +314,29 @@ const CommunitiesSection = ({ selectedCommunity, selectedCommunityName, onSelect
       return 0;
     });
 
+    const searchFiltered = sorted.filter((c) =>
+      c.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
     if (filterBy === 'joined') {
-      return sorted.filter((c) => userCommunities.has(c.id));
+      return searchFiltered.filter((c) => userCommunities.has(c.id));
     } else if (filterBy === 'available') {
-      return sorted.filter((c) => !userCommunities.has(c.id));
+      return searchFiltered.filter((c) => !userCommunities.has(c.id));
     }
 
-    return sorted;
+    return searchFiltered;
   };
 
   if (loading) {
     return <div className="text-center py-8">Loading communities...</div>;
   }
 
-  const allCommunitiesSorted = [...communities].sort((a, b) => {
-    if (sortBy === 'name') {
-      return a.name.localeCompare(b.name);
-    } else if (sortBy === 'newest') {
-      return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
-    } else if (sortBy === 'oldest') {
-      return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
-    }
-    return 0;
-  });
-
   const filteredCommunities = getFilteredAndSortedCommunities();
   const hasActiveFilter = filterBy !== 'all';
-  const showNoResultsMessage = hasActiveFilter && filteredCommunities.length === 0 && communities.length > 0;
-  const displayCommunities = showNoResultsMessage ? allCommunitiesSorted : filteredCommunities;
+  const hasSearch = searchTerm.trim().length > 0;
+  const showNoResultsMessage =
+    (hasActiveFilter || hasSearch) && filteredCommunities.length === 0 && communities.length > 0;
+  const displayCommunities = filteredCommunities;
 
   // If a community is selected, show its rides
   if (selectedCommunity) {
@@ -402,10 +423,21 @@ const CommunitiesSection = ({ selectedCommunity, selectedCommunityName, onSelect
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-4 flex-wrap mb-4">
+      <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end mb-4">
+        <div className="flex-1 min-w-[220px]">
+          <Label htmlFor="community-search">Search communities</Label>
+          <Input
+            id="community-search"
+            placeholder="Search by name..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="h-12 mt-1"
+          />
+        </div>
         <div className="flex-1 min-w-[200px]">
+          <Label className="sr-only" htmlFor="community-sort">Sort by</Label>
           <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger>
+            <SelectTrigger id="community-sort" className="h-12">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
             <SelectContent>
@@ -416,8 +448,9 @@ const CommunitiesSection = ({ selectedCommunity, selectedCommunityName, onSelect
           </Select>
         </div>
         <div className="flex-1 min-w-[200px]">
+          <Label className="sr-only" htmlFor="community-filter">Filter by</Label>
           <Select value={filterBy} onValueChange={setFilterBy}>
-            <SelectTrigger>
+            <SelectTrigger id="community-filter" className="h-12">
               <SelectValue placeholder="Filter by" />
             </SelectTrigger>
             <SelectContent>
@@ -488,9 +521,12 @@ const CommunitiesSection = ({ selectedCommunity, selectedCommunityName, onSelect
 
       {showNoResultsMessage && (
         <Card className="border-muted-foreground/20">
-          <CardContent className="py-4 text-center">
+          <CardContent className="py-4 text-center space-y-2">
             <p className="text-sm text-muted-foreground">
-              No results found matching your criteria. Showing all communities instead.
+              No communities match your search or filters.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Try clearing search to see all communities.
             </p>
           </CardContent>
         </Card>
@@ -502,47 +538,44 @@ const CommunitiesSection = ({ selectedCommunity, selectedCommunityName, onSelect
             No communities yet. Create the first one!
           </CardContent>
         </Card>
+      ) : displayCommunities.length === 0 ? (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <Card className="hover:shadow-medium transition-shadow flex flex-col h-full border-dashed">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-primary" />
+                Default Community
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 flex-1">
+              <p className="text-sm text-muted-foreground">
+                No communities were found for your search. Adjust your filters to view available communities.
+              </p>
+            </CardContent>
+            <CardFooter>
+              <Button variant="outline" size="sm" className="w-full" onClick={() => setSearchTerm('')}>
+                Clear search
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {displayCommunities.map((community) => {
             const isJoined = userCommunities.has(community.id);
+            const handleViewRides = () => onSelectCommunity(community.id, community.name);
             return (
-              <Card key={community.id} className="hover:shadow-medium transition-shadow flex flex-col h-full">
+              <Card
+                key={community.id}
+                className="hover:shadow-medium transition-shadow flex flex-col h-full cursor-pointer"
+                onClick={handleViewRides}
+              >
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center gap-2">
                       <Users className="w-5 h-5 text-primary" />
                       {community.name}
                     </CardTitle>
-                    {community.created_by === currentUserId && (
-                      <div className="flex gap-2">
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <Trash2 className="w-4 h-4 text-muted-foreground hover:text-destructive" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Community?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This will permanently delete "{community.name}" and all associated rides. This action
-                                cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDeleteCommunity(community.id, community.name)}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              >
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3 flex-1">
@@ -555,7 +588,8 @@ const CommunitiesSection = ({ selectedCommunity, selectedCommunityName, onSelect
                     variant="outline"
                     size="sm"
                     className="flex-1"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       const isCreator = community.created_by === currentUserId;
                       handleJoinLeave(community.id, isJoined, isCreator);
                     }}
@@ -577,7 +611,10 @@ const CommunitiesSection = ({ selectedCommunity, selectedCommunityName, onSelect
                     variant="secondary"
                     size="sm"
                     className="flex-1"
-                    onClick={() => onSelectCommunity(community.id, community.name)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleViewRides();
+                    }}
                   >
                     View Rides
                   </Button>

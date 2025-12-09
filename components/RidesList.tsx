@@ -133,15 +133,43 @@ const RidesList = ({
   // Track if we should skip initial fetch (when we have server data)
   const [hasInitialData] = useState(initialRides.length > 0 && initialUser !== null);
   const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
+  
+  // Track previous sortBy to detect sort-only changes
+  const [prevSortBy, setPrevSortBy] = useState(sortBy);
 
-  const fetchRides = async () => {
-    setLoading(true);
+  // Helper function to sort rides client-side
+  const applySortToRides = (ridesToSort: any[], sortOrder: string) => {
+    const sorted = [...ridesToSort];
+    sorted.sort((a: any, b: any) => {
+      if (sortOrder === 'newest') {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      } else if (sortOrder === 'oldest') {
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      } else if (sortOrder === 'date') {
+        const dateA = new Date(`${a.ride_date} ${a.ride_time}`);
+        const dateB = new Date(`${b.ride_date} ${b.ride_time}`);
+        return dateA.getTime() - dateB.getTime();
+      }
+      return 0;
+    });
+    return sorted;
+  };
+
+  const fetchRides = async (skipLoadingState = false) => {
+    // Only show loading skeleton if we don't have data or it's not just a sort change
+    if (!skipLoadingState) {
+      setLoading(true);
+    }
     try {
       const params: any = {};
       if (searchQuery) params.search = searchQuery;
       if (selectedCommunity) params.communityId = selectedCommunity;
       // Only pass type to API if it's a valid ride type (not 'verified')
       if (filterType !== 'all' && filterType !== 'verified') params.type = filterType;
+      // Pass filterType to API for verification filtering
+      if (filterType === 'verified') params.filterType = filterType;
+      // Pass sortBy to API
+      params.sortBy = sortBy;
       // Pass userId for "My Rides" to show expired/archived rides
       if (showOnlyMyRides && currentUserId) {
         params.userId = currentUserId;
@@ -163,27 +191,9 @@ const RidesList = ({
 
       setShowingDefaultFeed(isDefault);
 
-      // Apply filters on client side for search
+      // Rides are already filtered and sorted by the API
+      // No need to re-apply filters or sorting here
       let filteredRides = finalRides;
-
-      // Filter by verification status if "verified" filter is selected
-      if (filterType === 'verified') {
-        filteredRides = filteredRides.filter((ride: any) => ride.profiles?.nic_verified === true);
-      }
-
-      // Apply sorting
-      filteredRides.sort((a: any, b: any) => {
-        if (sortBy === 'newest') {
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        } else if (sortBy === 'oldest') {
-          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-        } else if (sortBy === 'date') {
-          const dateA = new Date(`${a.ride_date} ${a.ride_time}`);
-          const dateB = new Date(`${b.ride_date} ${b.ride_time}`);
-          return dateA.getTime() - dateB.getTime();
-        }
-        return 0;
-      });
 
       setAllRides(finalRides);
       setRides(filteredRides);
@@ -201,17 +211,69 @@ const RidesList = ({
   useEffect(() => {
     // Only fetch rides after user data has been loaded
     if (userLoaded) {
-      // Skip initial fetch if we have server data and no active filters
-      const hasActiveFilters = searchQuery || selectedCommunity || filterType !== 'all';
+      // Check if we only have sort/filter differences (no search or community filter)
+      const hasNonSortFilters = searchQuery || selectedCommunity;
       
-      if (hasInitialData && !hasActiveFilters && !hasFetchedOnce) {
-        // We have initial data and no filters - use server data, don't refetch
+      // If we have initial data and no search/community filters
+      if (hasInitialData && !hasNonSortFilters && !hasFetchedOnce) {
+        // Apply initial sort/filter to server data immediately (no loading state)
+        if (sortBy !== 'newest' || filterType !== 'all') {
+          let processedRides = [...initialRides];
+          
+          // Apply verification filter if needed
+          if (filterType === 'verified') {
+            processedRides = processedRides.filter((ride: any) => ride.profiles?.nic_verified === true);
+          }
+          
+          // Apply sort
+          if (sortBy !== 'newest') {
+            processedRides = applySortToRides(processedRides, sortBy);
+          }
+          
+          setRides(processedRides);
+          setAllRides(processedRides);
+        }
+        
         setHasFetchedOnce(true);
+        setPrevSortBy(sortBy);
+        
+        // Fetch in background if filters are active to ensure consistency
+        if (sortBy !== 'newest' || filterType !== 'all') {
+          fetchRides(true);
+        }
         return;
       }
       
-      // Otherwise, fetch rides (either no initial data, or filters changed)
+      // Check if only sortBy or filterType changed (and we have data, no search/community)
+      const onlyClientFilterChanged = (
+        hasFetchedOnce && 
+        (sortBy !== prevSortBy || filterType !== 'all') &&
+        rides.length > 0 &&
+        !hasNonSortFilters
+      );
+      
+      if (onlyClientFilterChanged) {
+        // Apply changes immediately to existing data for instant feedback
+        let processedRides = [...allRides];
+        
+        // Apply verification filter if needed
+        if (filterType === 'verified') {
+          processedRides = processedRides.filter((ride: any) => ride.profiles?.nic_verified === true);
+        }
+        
+        // Apply sort
+        const sortedRides = applySortToRides(processedRides, sortBy);
+        setRides(sortedRides);
+        setPrevSortBy(sortBy);
+        
+        // Fetch in background to ensure consistency, but don't show loading
+        fetchRides(true);
+        return;
+      }
+      
+      // Otherwise, fetch rides normally (with loading state)
       setHasFetchedOnce(true);
+      setPrevSortBy(sortBy);
       fetchRides();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

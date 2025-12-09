@@ -244,12 +244,16 @@ export const ridesApi = {
     communityId?: string;
     type?: string;
     userId?: string;
+    sortBy?: string;
+    filterType?: string;
   }) => {
     const queryParams = new URLSearchParams();
     if (params?.search) queryParams.append('search', params.search);
     if (params?.communityId) queryParams.append('communityId', params.communityId);
     if (params?.type) queryParams.append('type', params.type);
     if (params?.userId) queryParams.append('userId', params.userId);
+    if (params?.sortBy) queryParams.append('sortBy', params.sortBy);
+    if (params?.filterType) queryParams.append('filterType', params.filterType);
 
     const token = getAuthToken();
     const response = await fetch(`${API_BASE}/rides?${queryParams.toString()}`, {

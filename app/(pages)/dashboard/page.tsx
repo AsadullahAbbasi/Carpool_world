@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
-import { getServerUser, getServerRides } from '@/lib/server-data';
+import { getServerUser, getServerRides, getServerCommunities, getServerUserCommunities } from '@/lib/server-data';
 import DashboardClient from '@/components/DashboardClient';
 
 // Loading skeleton for Suspense boundary
@@ -36,8 +36,8 @@ export default async function DashboardPage() {
     redirect('/auth');
   }
 
-  // Pre-fetch rides data for both "All Rides" and "My Rides" tabs
-  const [allRides, myRides] = await Promise.all([
+  // Pre-fetch data for all tabs
+  const [allRides, myRides, communities, userCommunities] = await Promise.all([
     getServerRides({
       sortBy: 'newest',
       filterType: 'all',
@@ -47,6 +47,8 @@ export default async function DashboardPage() {
       sortBy: 'newest',
       filterType: 'all',
     }),
+    getServerCommunities(),
+    getServerUserCommunities(user.id),
   ]);
 
   return (
@@ -55,6 +57,8 @@ export default async function DashboardPage() {
       initialProfile={profile}
       initialRides={allRides}
       initialMyRides={myRides}
+      initialCommunities={communities}
+      initialUserCommunities={userCommunities}
     />
   );
 }

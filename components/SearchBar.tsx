@@ -16,6 +16,7 @@ import { Search, X } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 
 interface SearchBarProps {
+  initialCommunities?: Community[];
   onSearch: (query: string) => void;
   onCommunitySelect: (communityId: string | null, communityName?: string | null) => void;
 }
@@ -25,13 +26,17 @@ interface Community {
   name: string;
 }
 
-const SearchBar = ({ onSearch, onCommunitySelect }: SearchBarProps) => {
+const SearchBar = ({ initialCommunities = [], onSearch, onCommunitySelect }: SearchBarProps) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCommunity, setSelectedCommunity] = useState<string>('');
-  const [communities, setCommunities] = useState<Community[]>([]);
+  const [communities, setCommunities] = useState<Community[]>(initialCommunities);
 
   useEffect(() => {
-    fetchCommunities();
+    // Only fetch if we don't have initial data
+    if (initialCommunities.length === 0) {
+      fetchCommunities();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchCommunities = async () => {
@@ -51,8 +56,8 @@ const SearchBar = ({ onSearch, onCommunitySelect }: SearchBarProps) => {
     return value;
   };
 
-  const applyFilters = (queryOverride?: string) => {
-    const normalizedCommunity = normalizeCommunity(selectedCommunity);
+  const applyFilters = (queryOverride?: string, communityOverride?: string) => {
+    const normalizedCommunity = normalizeCommunity(communityOverride ?? selectedCommunity);
     const selectedComm = communities.find(c => c.id === normalizedCommunity);
     const queryToUse = queryOverride !== undefined ? queryOverride : searchQuery;
 
@@ -70,13 +75,16 @@ const SearchBar = ({ onSearch, onCommunitySelect }: SearchBarProps) => {
   };
 
   const handleCommunityChange = (value: string) => {
-    setSelectedCommunity(normalizeCommunity(value));
+    const normalized = normalizeCommunity(value);
+    setSelectedCommunity(normalized);
+    // Immediately apply filters when community changes
+    applyFilters(undefined, normalized);
   };
 
   return (
     <Card>
       <CardContent className="pt-6">
-        <div className="flex flex-col gap-4 md:flex-row md:flex-wrap md:items-end">
+        <div className="flex flex-col pt-4 gap-4 md:flex-row md:flex-wrap md:items-end">
           <div className="flex flex-col gap-2 flex-1 min-w-[15rem]">
             <Label htmlFor="search">Search Rides</Label>
             <div className="relative">
@@ -86,7 +94,7 @@ const SearchBar = ({ onSearch, onCommunitySelect }: SearchBarProps) => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                className="pr-10"
+                className="pr-10 h-12"
               />
               <Button
                 size="icon"
@@ -102,7 +110,7 @@ const SearchBar = ({ onSearch, onCommunitySelect }: SearchBarProps) => {
           <div className="flex flex-col gap-2 flex-1 min-w-[12rem] md:max-w-[16rem]">
             <Label htmlFor="community">Filter by Community</Label>
             <Select value={selectedCommunity || 'all'} onValueChange={handleCommunityChange}>
-              <SelectTrigger id="community">
+              <SelectTrigger id="community" className="h-12 items-center">
                 <SelectValue placeholder="All communities" />
               </SelectTrigger>
               <SelectContent>

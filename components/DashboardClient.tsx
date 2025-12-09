@@ -53,11 +53,22 @@ interface ServerRide {
   } | null;
 }
 
+interface ServerCommunity {
+  id: string;
+  name: string;
+  description: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
 interface DashboardClientProps {
   initialUser: ServerUser | null;
   initialProfile: ServerProfile | null;
   initialRides: ServerRide[];
   initialMyRides: ServerRide[];
+  initialCommunities: ServerCommunity[];
+  initialUserCommunities: string[];
 }
 
 function DashboardContent({
@@ -65,6 +76,8 @@ function DashboardContent({
   initialProfile,
   initialRides,
   initialMyRides,
+  initialCommunities,
+  initialUserCommunities,
 }: DashboardClientProps) {
   const [session, setSession] = useState<ServerUser | null>(initialUser);
   const [searchQuery, setSearchQuery] = useState('');
@@ -121,7 +134,18 @@ function DashboardContent({
         </div>
 
         {/* Mobile-first tabs with adequate spacing */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col gap-[1.5rem] sm:gap-[1.25rem]">
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => {
+            setActiveTab(value);
+            if (value === 'communities') {
+              // Reset search context when returning to communities tab
+              setSelectedCommunity(null);
+              setSelectedCommunityName(null);
+            }
+          }}
+          className="flex flex-col gap-[1.5rem] sm:gap-[1.25rem]"
+        >
           {/* Touch-friendly tab list on mobile */}
           <TabsList className="grid w-full max-w-2xl grid-cols-4 h-auto p-[0.25rem]">
             <TabsTrigger value="rides" className="flex items-center gap-[0.375rem] text-sm min-h-[2.75rem] px-[0.5rem] sm:min-h-[2.5rem] sm:gap-[0.5rem] sm:text-sm">
@@ -157,16 +181,8 @@ function DashboardContent({
               selectedCommunity={null}
               selectedCommunityName={null}
               filterType="all"
-              onFilterTypeChange={setFilterType}
-              sortBy={sortBy}
-              onSortByChange={setSortBy}
+              sortBy="newest"
               showFilter={false}
-              onClearCommunity={() => {
-                setFilterType('all');
-              }}
-              onClearFilters={() => {
-                setFilterType('all');
-              }}
               showOnlyMyRides={true}
             />
           </TabsContent>
@@ -181,7 +197,7 @@ function DashboardContent({
                 <div className="flex gap-[0.5rem] w-full sm:w-auto">
                   {/* Sort Dropdown */}
                   <Select
-                    value={sortBy === 'date' ? 'newest' : sortBy}
+                    value={sortBy}
                     onValueChange={(value) => {
                       setSortBy(value);
                     }}
@@ -217,7 +233,7 @@ function DashboardContent({
             <RidesList
               initialRides={initialRides}
               initialUser={initialUser}
-              searchQuery={searchQuery}
+              searchQuery=""
               selectedCommunity={null}
               selectedCommunityName={null}
               filterType={filterType}
@@ -229,7 +245,6 @@ function DashboardContent({
                 setFilterType('all');
               }}
               onClearFilters={() => {
-                setSearchQuery('');
                 setFilterType('all');
               }}
             />
@@ -237,6 +252,9 @@ function DashboardContent({
 
           <TabsContent value="communities">
             <CommunitiesSection
+              initialCommunities={initialCommunities}
+              initialUserCommunities={initialUserCommunities}
+              initialUser={initialUser}
               selectedCommunity={selectedCommunity}
               selectedCommunityName={selectedCommunityName}
               onSelectCommunity={(id, name) => {
@@ -259,7 +277,7 @@ function DashboardContent({
               <div className="flex gap-[0.5rem] w-full sm:w-auto">
                 {/* Sort Dropdown */}
                 <Select
-                  value={sortBy === 'date' ? 'newest' : sortBy}
+                  value={sortBy}
                   onValueChange={(value) => {
                     setSortBy(value);
                   }}
@@ -292,6 +310,7 @@ function DashboardContent({
               </div>
             </div>
             <SearchBar
+              initialCommunities={initialCommunities}
               onSearch={setSearchQuery}
               onCommunitySelect={(id, name) => {
                 setSelectedCommunity(id);
@@ -338,6 +357,15 @@ export default function DashboardClient(props: DashboardClientProps) {
           <div className="space-y-6">
             <div className="h-12 bg-muted/50 rounded-md animate-pulse-slow" />
             <div className="h-10 bg-muted/50 rounded-md w-1/3 animate-pulse-slow" />
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="border rounded-lg p-4 space-y-3">
+                  <div className="h-4 bg-muted rounded w-1/3 mb-2" />
+                  <div className="h-3 bg-muted rounded w-2/3" />
+                  <div className="h-20 bg-muted rounded" />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>

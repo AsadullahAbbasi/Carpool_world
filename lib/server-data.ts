@@ -9,6 +9,8 @@ import connectDB from './mongodb';
 import { User } from '@/models/User';
 import { Profile } from '@/models/Profile';
 import { Ride } from '@/models/Ride';
+import { Community } from '@/models/Community';
+import { CommunityMember } from '@/models/CommunityMember';
 
 export interface ServerUser {
   id: string;
@@ -55,7 +57,7 @@ function transformRide(ride: any, profile?: any): ServerRide {
     type: ride.type,
     start_location: ride.startLocation,
     end_location: ride.endLocation,
-    ride_date: ride.rideDate,
+    ride_date: ride.rideDate ? new Date(ride.rideDate).toISOString().split('T')[0] : '',
     ride_time: ride.rideTime,
     seats_available: ride.seatsAvailable,
     description: ride.description,
@@ -159,16 +161,27 @@ export async function getServerRides(params?: {
       query.type = params.type;
     }
 
-    // If userId is provided (My Rides), don't filter expired/archived
-    // Otherwise, filter out expired and archived rides
-    if (!params?.userId) {
+    // If userId is provided (My Rides), filter by user and don't filter expired/archived
+    if (params?.userId) {
+      query.userId = params.userId;
+    } else {
+      // Otherwise, filter out expired and archived rides
       query.isArchived = { $ne: true };
       const now = new Date();
       query.expiresAt = { $gt: now };
     }
 
+    // Determine sort order
+    let sortOrder: any = { createdAt: -1 }; // Default to newest first
+    if (params?.sortBy === 'oldest') {
+      sortOrder = { createdAt: 1 };
+    } else if (params?.sortBy === 'date') {
+      // For date sorting, we'll sort by rideDate and rideTime
+      sortOrder = { rideDate: 1, rideTime: 1 };
+    }
+
     let rides = await Ride.find(query)
-      .sort({ createdAt: -1 })
+      .sort(sortOrder)
       .lean();
 
     // Apply text search if provided
@@ -197,25 +210,76 @@ export async function getServerRides(params?: {
       filteredRides = filteredRides.filter((ride) => ride.profiles?.nic_verified === true);
     }
 
-    // Apply sorting
-    if (params?.sortBy) {
+    // Apply sorting (if not already sorted by MongoDB query, or for date sorting)
+    if (params?.sortBy === 'date') {
+      // Date sorting needs to be done client-side since it combines rideDate and rideTime
       filteredRides.sort((a, b) => {
-        if (params.sortBy === 'newest') {
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        } else if (params.sortBy === 'oldest') {
-          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-        } else if (params.sortBy === 'date') {
-          const dateA = new Date(`${a.ride_date} ${a.ride_time}`);
-          const dateB = new Date(`${b.ride_date} ${b.ride_time}`);
-          return dateA.getTime() - dateB.getTime();
-        }
-        return 0;
+        const dateA = new Date(`${a.ride_date} ${a.ride_time}`);
+        const dateB = new Date(`${b.ride_date} ${b.ride_time}`);
+        return dateA.getTime() - dateB.getTime();
+      });
+    } else if (params?.sortBy === 'oldest') {
+      // Ensure oldest-first sorting (MongoDB already sorted, but ensure consistency)
+      filteredRides.sort((a, b) => {
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
       });
     }
+    // 'newest' is already sorted by MongoDB query
 
     return filteredRides;
   } catch (error) {
     console.error('Server get rides error:', error);
+    return [];
+  }
+}
+
+export interface ServerCommunity {
+  id: string;
+  name: string;
+  description: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Get all communities from server-side
+ */
+export async function getServerCommunities(): Promise<ServerCommunity[]> {
+  try {
+    await connectDB();
+
+    const communities = await Community.find({})
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return communities.map((community: any) => ({
+      id: community._id.toString(),
+      name: community.name,
+      description: community.description || null,
+      created_by: community.createdBy,
+      created_at: community.createdAt ? new Date(community.createdAt).toISOString() : new Date().toISOString(),
+      updated_at: community.updatedAt ? new Date(community.updatedAt).toISOString() : new Date().toISOString(),
+    }));
+  } catch (error) {
+    console.error('Server get communities error:', error);
+    return [];
+  }
+}
+
+/**
+ * Get user's community memberships from server-side
+ */
+export async function getServerUserCommunities(userId: string): Promise<string[]> {
+  try {
+    await connectDB();
+
+    const memberships = await CommunityMember.find({ userId })
+      .lean();
+
+    return memberships.map((m: any) => m.communityId.toString());
+  } catch (error) {
+    console.error('Server get user communities error:', error);
     return [];
   }
 }
