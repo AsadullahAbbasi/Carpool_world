@@ -41,6 +41,8 @@ interface Ride {
 }
 
 interface RidesListProps {
+  initialRides?: Ride[];
+  initialUser?: { id: string; email: string; emailVerified: boolean } | null;
   searchQuery?: string;
   selectedCommunity?: string | null;
   selectedCommunityName?: string | null;
@@ -56,6 +58,8 @@ interface RidesListProps {
 }
 
 const RidesList = ({
+  initialRides = [],
+  initialUser = null,
   searchQuery = '',
   selectedCommunity,
   selectedCommunityName,
@@ -69,10 +73,11 @@ const RidesList = ({
   renderFilter,
   showOnlyMyRides = false
 }: RidesListProps) => {
-  const [rides, setRides] = useState<Ride[]>([]);
-  const [allRides, setAllRides] = useState<Ride[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  // Initialize with server data if provided
+  const [rides, setRides] = useState<Ride[]>(initialRides);
+  const [allRides, setAllRides] = useState<Ride[]>(initialRides);
+  const [loading, setLoading] = useState(initialRides.length === 0);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(initialUser?.id || null);
   const [isProfileComplete, setIsProfileComplete] = useState(true);
   const [editingRide, setEditingRide] = useState<Ride | null>(null);
   const [reviewingRide, setReviewingRide] = useState<Ride | null>(null);
@@ -113,6 +118,21 @@ const RidesList = ({
       setUserLoaded(true);
     }
   };
+
+  // Initialize user data - always check for profile completion
+  useEffect(() => {
+    if (initialUser) {
+      // If we have initial user, mark as loaded immediately
+      setUserLoaded(true);
+    }
+    // Always call getCurrentUser to check profile completion
+    getCurrentUser();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Track if we should skip initial fetch (when we have server data)
+  const [hasInitialData] = useState(initialRides.length > 0 && initialUser !== null);
+  const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
 
   const fetchRides = async () => {
     setLoading(true);
@@ -179,14 +199,22 @@ const RidesList = ({
   };
 
   useEffect(() => {
-    getCurrentUser();
-  }, []);
-
-  useEffect(() => {
-    // Only fetch rides after user data has been loaded to prevent double fetching
+    // Only fetch rides after user data has been loaded
     if (userLoaded) {
+      // Skip initial fetch if we have server data and no active filters
+      const hasActiveFilters = searchQuery || selectedCommunity || filterType !== 'all';
+      
+      if (hasInitialData && !hasActiveFilters && !hasFetchedOnce) {
+        // We have initial data and no filters - use server data, don't refetch
+        setHasFetchedOnce(true);
+        return;
+      }
+      
+      // Otherwise, fetch rides (either no initial data, or filters changed)
+      setHasFetchedOnce(true);
       fetchRides();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, selectedCommunity, sortBy, filterType, currentUserId, showOnlyMyRides, userLoaded]);
 
   useEffect(() => {
