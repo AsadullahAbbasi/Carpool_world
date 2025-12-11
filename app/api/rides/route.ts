@@ -7,15 +7,16 @@ import { z } from 'zod';
 
 const createRideSchema = z.object({
   type: z.enum(['offering', 'seeking']),
+  genderPreference: z.enum(['girls_only', 'boys_only', 'both']),
   startLocation: z.string().min(1),
   endLocation: z.string().min(1),
   rideDate: z.string(),
   rideTime: z.string(),
   seatsAvailable: z.number().optional(),
-  description: z.string().optional(),
+  description: z.string().max(200, 'Description must be 200 characters or less').optional(),
   phone: z.string().optional(),
   expiresAt: z.string(),
-  communityId: z.string().optional().nullable(),
+  communityIds: z.array(z.string()).optional(),
   recurringDays: z.array(z.string()).optional(),
 });
 
@@ -24,6 +25,7 @@ function transformRide(ride: any, profile?: any) {
   return {
     id: ride._id?.toString() || ride.id,
     type: ride.type,
+    gender_preference: ride.genderPreference || ride.gender_preference,
     start_location: ride.startLocation || ride.start_location,
     end_location: ride.endLocation || ride.end_location,
     ride_date: ride.rideDate ? new Date(ride.rideDate).toISOString().split('T')[0] : ride.ride_date,
@@ -36,7 +38,7 @@ function transformRide(ride: any, profile?: any) {
     user_id: ride.userId || ride.user_id,
     created_at: ride.createdAt ? new Date(ride.createdAt).toISOString() : ride.created_at,
     updated_at: ride.updatedAt ? new Date(ride.updatedAt).toISOString() : ride.updated_at,
-    community_id: ride.communityId ?? ride.community_id,
+    community_ids: ride.communityIds || ride.community_ids || [],
     recurring_days: ride.recurringDays || ride.recurring_days || [],
     profiles: profile ? {
       full_name: profile.fullName || profile.full_name,
@@ -58,11 +60,11 @@ export const GET = async (req: NextRequest) => {
     const filterType = searchParams.get('filterType') || 'all';
 
     let query: any = {};
-    
+
     if (communityId) {
-      query.communityId = communityId;
+      query.communityIds = communityId; // Match if ride includes this community
     }
-    
+
     // Only apply type filter if it's a valid ride type (not 'all' or 'verified')
     if (type && type !== 'all' && type !== 'verified') {
       query.type = type;
@@ -79,9 +81,10 @@ export const GET = async (req: NextRequest) => {
     }
 
     // Determine sort order
-    let sortOrder: any = { createdAt: -1 }; // Default to newest first
+    // Use updatedAt to reflect most recent edits/reactivations
+    let sortOrder: any = { updatedAt: -1 }; // Default to newest (most recently updated) first
     if (sortBy === 'oldest') {
-      sortOrder = { createdAt: 1 };
+      sortOrder = { updatedAt: 1 };
     } else if (sortBy === 'date') {
       // For date sorting, we'll sort by rideDate and rideTime
       sortOrder = { rideDate: 1, rideTime: 1 };
@@ -117,6 +120,11 @@ export const GET = async (req: NextRequest) => {
       filteredRides = filteredRides.filter((ride: any) => ride.profiles?.nic_verified === true);
     }
 
+    // Filter by gender preference if selected
+    if (filterType === 'girls_only' || filterType === 'boys_only' || filterType === 'both') {
+      filteredRides = filteredRides.filter((ride: any) => ride.gender_preference === filterType);
+    }
+
     // Apply sorting (if not already sorted by MongoDB query, or for date sorting)
     if (sortBy === 'date') {
       // Date sorting needs to be done client-side since it combines rideDate and rideTime
@@ -128,7 +136,7 @@ export const GET = async (req: NextRequest) => {
     } else if (sortBy === 'oldest') {
       // Ensure oldest-first sorting (MongoDB already sorted, but ensure consistency)
       filteredRides.sort((a: any, b: any) => {
-        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        return new Date(a.updated_at || a.created_at).getTime() - new Date(b.updated_at || b.created_at).getTime();
       });
     }
     // 'newest' is already sorted by MongoDB query
@@ -151,9 +159,38 @@ export const POST = authMiddleware(async (req) => {
     const body = await req.json();
     const data = createRideSchema.parse(body);
 
+    // Check for existing active rides
+    const now = new Date();
+    const existingActiveRide = await Ride.findOne({
+      userId,
+      isArchived: { $ne: true },
+      expiresAt: { $gt: now },
+    }).lean();
+
+    if (existingActiveRide) {
+      return NextResponse.json(
+        {
+          error: 'You already have an active ride',
+          hasActiveRide: true,
+          rideId: existingActiveRide._id?.toString(),
+        },
+        { status: 400 }
+      );
+    }
+
+    // Check for existing expired rides
+    const existingExpiredRide = await Ride.findOne({
+      userId,
+      $or: [
+        { isArchived: true },
+        { expiresAt: { $lte: now } }
+      ]
+    }).lean();
+
     const ride = new Ride({
       userId,
       type: data.type,
+      genderPreference: data.genderPreference,
       startLocation: data.startLocation,
       endLocation: data.endLocation,
       rideDate: new Date(data.rideDate),
@@ -162,7 +199,7 @@ export const POST = authMiddleware(async (req) => {
       description: data.description,
       phone: data.phone,
       expiresAt: new Date(data.expiresAt),
-      communityId: data.communityId || null,
+      communityIds: data.communityIds || [],
       recurringDays: data.recurringDays || [],
     });
     await ride.save();
@@ -171,6 +208,7 @@ export const POST = authMiddleware(async (req) => {
 
     return NextResponse.json({
       ride: transformRide(ride, profile || undefined),
+      hasExpiredRide: !!existingExpiredRide,
     }, { status: 201 });
   } catch (error: any) {
     if (error instanceof z.ZodError) {

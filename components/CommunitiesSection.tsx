@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { communitiesApi, authApi, communityRequestsApi } from '@/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Users, UserPlus, UserMinus, Trash2, ArrowLeft } from 'lucide-react';
 import RidesList from './RidesList';
+import { CreateRideDialog } from './CreateRideDialog';
 import ProfileDialog from './ProfileDialog';
 import {
   AlertDialog,
@@ -62,18 +64,20 @@ interface CommunitiesSectionProps {
   onBackToCommunities?: () => void;
 }
 
-const CommunitiesSection = ({ 
+const CommunitiesSection = ({
   initialCommunities = [],
   initialUserCommunities = [],
   initialUser = null,
-  selectedCommunity, 
-  selectedCommunityName, 
-  onSelectCommunity, 
-  onBackToCommunities 
+  selectedCommunity,
+  selectedCommunityName,
+  onSelectCommunity,
+  onBackToCommunities
 }: CommunitiesSectionProps) => {
+  const router = useRouter();
   const [communities, setCommunities] = useState<Community[]>(initialCommunities);
   const [userCommunities, setUserCommunities] = useState<Set<string>>(new Set(initialUserCommunities));
   const [currentUserId, setCurrentUserId] = useState<string | null>(initialUser?.id || null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(!!initialUser);
   const [loading, setLoading] = useState(initialCommunities.length === 0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [formData, setFormData] = useState({ name: '', description: '' });
@@ -83,6 +87,7 @@ const CommunitiesSection = ({
   const [communityFilterType, setCommunityFilterType] = useState<string>('all');
   const [communitySortBy, setCommunitySortBy] = useState<string>('newest');
   const [showProfileDialog, setShowProfileDialog] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const [profileCompletionMessage, setProfileCompletionMessage] = useState('');
   const { toast } = useToast();
 
@@ -113,6 +118,12 @@ const CommunitiesSection = ({
   };
 
   const handleCreateClick = async () => {
+    // Check authentication first
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
+    // Then check profile completion
     const isProfileComplete = await checkProfile();
     if (isProfileComplete) {
       setDialogOpen(true);
@@ -122,8 +133,11 @@ const CommunitiesSection = ({
   const getCurrentUserId = async () => {
     try {
       const data: any = await authApi.getCurrentUser();
+      const hasUser = !!(data && data.user);
+      setIsAuthenticated(hasUser);
       return data.user?.id || null;
     } catch {
+      setIsAuthenticated(false);
       return null;
     }
   };
@@ -167,7 +181,7 @@ const CommunitiesSection = ({
     const init = async () => {
       // Skip initial fetch if we have server data
       const hasInitialData = initialCommunities.length > 0;
-      
+
       if (hasInitialData) {
         // We have server data, just get userId if not already set
         if (!currentUserId) {
@@ -185,6 +199,21 @@ const CommunitiesSection = ({
     init();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Watch for changes in initialUser (when user signs in/out)
+  useEffect(() => {
+    if (initialUser) {
+      setCurrentUserId(initialUser.id);
+      setIsAuthenticated(true);
+      // Refresh user communities when user signs in
+      fetchUserCommunities();
+    } else {
+      setCurrentUserId(null);
+      setIsAuthenticated(false);
+      setUserCommunities(new Set());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialUser]);
 
   const handleCreateCommunity = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -265,6 +294,12 @@ const CommunitiesSection = ({
 
 
   const handleJoinLeave = async (communityId: string, isJoined: boolean, isCreator: boolean) => {
+    // Check authentication first
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
+
     try {
       if (isJoined) {
         if (isCreator) {
@@ -361,7 +396,13 @@ const CommunitiesSection = ({
               Rides in {selectedCommunityName || 'Community'}
             </h2>
           </div>
-          <div className="w-full sm:w-auto">
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <CreateRideDialog preselectedCommunityId={selectedCommunity}>
+              <Button className="w-full sm:w-auto">
+                <Plus className="w-4 h-4 mr-2" />
+                Create Ride
+              </Button>
+            </CreateRideDialog>
             <Select
               value={`${communitySortBy}-${communityFilterType}`}
               onValueChange={(value) => {
@@ -464,59 +505,67 @@ const CommunitiesSection = ({
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h2 className="text-2xl font-semibold">Communities</h2>
-        <Dialog
-          open={dialogOpen}
-          onOpenChange={(open) => {
-            setDialogOpen(open);
-            if (!open) {
-              setFormData({ name: '', description: '' });
-            }
-          }}
-        >
-          <Button
-            onClick={handleCreateClick}
-            className="bg-gradient-to-r from-accent to-accent/90 w-full sm:w-auto"
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <CreateRideDialog>
+            <Button className="w-full sm:w-auto">
+              <Plus className="w-4 h-4 mr-2" />
+              Create Ride
+            </Button>
+          </CreateRideDialog>
+          <Dialog
+            open={dialogOpen}
+            onOpenChange={(open) => {
+              setDialogOpen(open);
+              if (!open) {
+                setFormData({ name: '', description: '' });
+              }
+            }}
           >
-            <Plus className="w-4 h-4 mr-2" />
-            Create Community
-          </Button>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Request a New Community</DialogTitle>
-              <DialogDescription>
-                Submit a request to create a new community. An admin will review your request.
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleCreateCommunity} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Community Name</Label>
-                <Input
-                  id="name"
-                  placeholder="e.g., Downtown Commuters"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="description">Why do you want to create this community? *</Label>
-                <Textarea
-                  id="description"
-                  placeholder="Please explain why you want to create this community, what it's for, and who it's for..."
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  rows={4}
-                  required
-                />
-              </div>
-              <DialogFooter>
-                <Button type="submit" className="w-full">
-                  Submit Request
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+            <Button
+              onClick={handleCreateClick}
+              className="bg-gradient-to-r from-accent to-accent/90 w-full sm:w-auto"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Create Community
+            </Button>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Request a New Community</DialogTitle>
+                <DialogDescription>
+                  Submit a request to create a new community. An admin will review your request.
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleCreateCommunity} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Community Name</Label>
+                  <Input
+                    id="name"
+                    placeholder="e.g., Downtown Commuters"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="description">Why do you want to create this community? *</Label>
+                  <Textarea
+                    id="description"
+                    placeholder="Please explain why you want to create this community, what it's for, and who it's for..."
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    rows={4}
+                    required
+                  />
+                </div>
+                <DialogFooter>
+                  <Button type="submit" className="w-full">
+                    Submit Request
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {showNoResultsMessage && (
@@ -637,6 +686,36 @@ const CommunitiesSection = ({
           });
         }}
       />
+
+      {/* Auth Modal - shown when unauthenticated user tries to join a community */}
+      <Dialog open={showAuthModal} onOpenChange={setShowAuthModal}>
+        <DialogContent className="animate-scale-in">
+          <DialogHeader>
+            <DialogTitle>Sign In Required</DialogTitle>
+            <DialogDescription>
+              Please sign in to join communities. Create an account or sign in to continue.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 pt-4">
+            <Button
+              onClick={() => {
+                router.push('/auth');
+                setShowAuthModal(false);
+              }}
+              className="w-full"
+            >
+              Sign In / Sign Up
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setShowAuthModal(false)}
+              className="w-full"
+            >
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

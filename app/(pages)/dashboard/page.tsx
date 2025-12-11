@@ -31,10 +31,8 @@ export default async function DashboardPage() {
   // Fetch user and rides data on the server
   const { user, profile } = await getServerUser();
 
-  // Redirect to auth if not authenticated
-  if (!user) {
-    redirect('/auth');
-  }
+  // Allow unauthenticated access - users can browse without signing in
+  // Authentication is only required for creating rides
 
   // Pre-fetch data for all tabs
   const [allRides, myRides, communities, userCommunities] = await Promise.all([
@@ -42,13 +40,13 @@ export default async function DashboardPage() {
       sortBy: 'newest',
       filterType: 'all',
     }),
-    getServerRides({
+    user ? getServerRides({
       userId: user.id,
       sortBy: 'newest',
       filterType: 'all',
-    }),
+    }) : Promise.resolve([]),
     getServerCommunities(),
-    getServerUserCommunities(user.id),
+    user ? getServerUserCommunities(user.id) : Promise.resolve([]),
   ]);
 
   return (

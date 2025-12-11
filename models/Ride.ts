@@ -3,6 +3,7 @@ import mongoose, { Schema, Model, Document, Types } from 'mongoose';
 export interface IRide extends Document {
   userId: string;
   type: 'offering' | 'seeking';
+  genderPreference: 'girls_only' | 'boys_only' | 'both';
   startLocation: string;
   endLocation: string;
   rideDate: Date;
@@ -12,7 +13,7 @@ export interface IRide extends Document {
   phone?: string;
   expiresAt: Date;
   isArchived?: boolean;
-  communityId?: string;
+  communityIds?: string[];
   recurringDays?: string[];
   createdAt: Date;
   updatedAt: Date;
@@ -29,6 +30,11 @@ const rideSchema = new Schema<IRide>(
     type: {
       type: String,
       enum: ['offering', 'seeking'],
+      required: true,
+    },
+    genderPreference: {
+      type: String,
+      enum: ['girls_only', 'boys_only', 'both'],
       required: true,
     },
     startLocation: {
@@ -60,11 +66,10 @@ const rideSchema = new Schema<IRide>(
       default: false,
       index: true,
     },
-    communityId: {
+    communityIds: [{
       type: String,
       ref: 'Community',
-      index: true,
-    },
+    }],
     recurringDays: [String],
   },
   {

@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -93,7 +94,7 @@ export default function LandingPage() {
               <Button
                 size="lg"
                 className="text-lg w-full  md:px-8 py-3"
-                onClick={() => router.push('/auth')}
+                onClick={() => router.push('/dashboard?tab=rides')}
               >
                 Get Started
                 <ArrowRight className="ml-2 w-5 h-5" />
@@ -102,7 +103,7 @@ export default function LandingPage() {
                 size="lg"
                 variant="outline"
                 className="text-lg w-full  md:px-8 py-3"
-                onClick={() => router.push('/dashboard')}
+                onClick={() => router.push('/dashboard?tab=rides')}
               >
                 Browse Rides
               </Button>
@@ -125,7 +126,7 @@ export default function LandingPage() {
               <Card
                 key={ride.id}
                 className="hover:shadow-medium transition-all duration-200 hover:scale-[1.02] cursor-pointer"
-                onClick={() => router.push('/auth')}
+                onClick={() => router.push('/dashboard?tab=rides')}
               >
                 <CardHeader>
                   <div className="flex items-start justify-between">
@@ -174,7 +175,7 @@ export default function LandingPage() {
             ))}
           </div>
           <div className="text-center mt-8">
-            <Button variant="outline" onClick={() => router.push('/auth')}>
+            <Button variant="outline" onClick={() => router.push('/dashboard?tab=rides')}>
               View All Rides
               <ArrowRight className="ml-2 w-4 h-4" />
             </Button>
@@ -198,7 +199,7 @@ export default function LandingPage() {
               <Card
                 key={community.id}
                 className="hover:shadow-medium transition-all duration-200 hover:scale-[1.02] cursor-pointer"
-                onClick={() => router.push('/auth')}
+                onClick={() => router.push('/dashboard?tab=communities')}
               >
                 <CardHeader>
                   <CardTitle>{community.name}</CardTitle>
@@ -214,7 +215,7 @@ export default function LandingPage() {
             ))}
           </div>
           <div className="text-center mt-8">
-            <Button variant="outline" onClick={() => router.push('/auth')}>
+            <Button variant="outline" onClick={() => router.push('/dashboard?tab=communities')}>
               Browse Communities
               <ArrowRight className="ml-2 w-4 h-4" />
             </Button>
@@ -426,16 +427,16 @@ export default function LandingPage() {
           <Button
             size="lg"
             className="text-lg px-8 py-3 bg-white text-black hover:bg-white/90 font-medium shadow-xl"
-            onClick={() => router.push('/auth')}
+            onClick={() => router.push('/dashboard')}
           >
-            Sign Up Free
+            Browse Rides
             <ArrowRight className="ml-2 w-5 h-5" />
           </Button>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border py-12 sm:px-4 sm:px-6 lg:px-8">
+      <footer className="border-t border-border py-12 px-4">
         <div className="container mx-auto max-w-6xl">
           <div className="grid gap-8 
                    grid-cols-1           /* 1 col on <640px */
@@ -445,7 +446,15 @@ export default function LandingPage() {
             {/* Logo + description */}
             <div className="col-span-2 lg:col-span-1">
               <div className="flex items-center gap-2 mb-4">
-                <Car className="w-6 h-6" />
+                <div className="w-8 h-8 relative flex items-center justify-center">
+                  <Image 
+                    src="/RideShare_Logo.png" 
+                    alt="RideShare Logo" 
+                    width={32}
+                    height={32}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
                 <span className="text-xl font-bold">RideShare</span>
               </div>
               <p className="text-sm text-muted-foreground">
@@ -457,9 +466,9 @@ export default function LandingPage() {
             <div>
               <h3 className="font-semibold mb-4">Product</h3>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><Link href="/auth" className="hover:text-foreground transition-colors">Browse Rides</Link></li>
-                <li><Link href="/auth" className="hover:text-foreground transition-colors">Communities</Link></li>
-                <li><Link href="/auth" className="hover:text-foreground transition-colors">Post a Ride</Link></li>
+                <li><Link href="/dashboard?tab=rides" className="hover:text-foreground transition-colors">Browse Rides</Link></li>
+                <li><Link href="/dashboard?tab=communities" className="hover:text-foreground transition-colors">Communities</Link></li>
+                <li><Link href="/dashboard?tab=rides" className="hover:text-foreground transition-colors">Post a Ride</Link></li>
               </ul>
             </div>
 
@@ -484,8 +493,10 @@ export default function LandingPage() {
           </div>
 
           {/* Copyright */}
-          <div className="mt-8 pt-8 border-t border-border text-center text-sm text-muted-foreground">
-            <p>&copy; {new Date().getFullYear()} RideShare. All rights reserved.</p>
+          <div className="mt-8 pt-8 border-t border-border">
+            <p className="text-center text-sm text-muted-foreground w-full">
+              &copy; {new Date().getFullYear()} RideShare. All rights reserved.
+            </p>
           </div>
         </div>
       </footer>

@@ -27,7 +27,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { MultiSelect } from '@/components/MultiSelect';
+import RideLimitAlert from '@/components/RideLimitAlert';
 import ProfileDialog from './ProfileDialog';
+import { useRouter } from 'next/navigation';
 
 interface CreateRideDialogProps {
   children?: React.ReactNode;
@@ -36,6 +39,7 @@ interface CreateRideDialogProps {
   onOpenChange?: (open: boolean) => void;
   onRideCreated?: (ride: any) => void;
   onRideUpdated?: (ride: any) => void;
+  preselectedCommunityId?: string; // Auto-select this community when dialog opens
 }
 
 // Helper function to get current date and time
@@ -50,17 +54,17 @@ const getCurrentDateTime = () => {
 const convert12To24 = (time12: string): string => {
   const match = time12.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
   if (!match) return time12; // Return as-is if already 24-hour format
-  
+
   let hours = parseInt(match[1]);
   const minutes = match[2];
   const ampm = match[3].toUpperCase();
-  
+
   if (ampm === 'PM' && hours !== 12) {
     hours += 12;
   } else if (ampm === 'AM' && hours === 12) {
     hours = 0;
   }
-  
+
   return `${String(hours).padStart(2, '0')}:${minutes}`;
 };
 
@@ -72,10 +76,19 @@ const convert24To12 = (time24: string): string => {
   return `${String(hours12).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${ampm}`;
 };
 
-export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, onOpenChange, onRideCreated, onRideUpdated }: CreateRideDialogProps) => {
+export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, onOpenChange, onRideCreated, onRideUpdated, preselectedCommunityId }: CreateRideDialogProps) => {
   const [internalOpen, setInternalOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  
   const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
   const setOpen = (value: boolean) => {
+    // Check authentication when trying to open
+    if (value && isAuthenticated === false) {
+      setShowAuthModal(true);
+      return;
+    }
+    
     if (onOpenChange) {
       onOpenChange(value);
     } else {
@@ -87,7 +100,7 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
   const [communities, setCommunities] = useState<Array<{ id: string; name: string }>>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [disableAutoExpiry, setDisableAutoExpiry] = useState(false);
-  
+
   // Refs to track if date/time pickers are open
   const rideDateRef = useRef<HTMLInputElement>(null);
   const expiryDateRef = useRef<HTMLInputElement>(null);
@@ -97,16 +110,20 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
   const [isExpiryDateOpen, setIsExpiryDateOpen] = useState(false);
   const [isExpiryTimeOpen, setIsExpiryTimeOpen] = useState(false);
 
-  const [formData, setFormData] = useState(() => {
+  // Track if user has made changes to prevent accidental data loss
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  const getInitialFormData = () => {
     const { date, time } = getCurrentDateTime();
     // Convert 24-hour time to 12-hour format for display
     const [hours24, minutes] = time.split(':').map(Number);
     const hours12 = hours24 % 12 || 12;
     const ampm = hours24 >= 12 ? 'PM' : 'AM';
     const time12 = `${String(hours12).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${ampm}`;
-    
+
     return {
       type: 'offering',
+      gender_preference: 'girls_only',
       start_location: '',
       end_location: '',
       ride_date: date,
@@ -114,22 +131,54 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
       seats_available: '',
       description: '',
       phone: '',
-      community_id: 'none',
+      community_ids: [] as string[],
       recurring_days: [] as string[],
       expiry_date: '', // Optional expiry date
       expiry_time: '', // Optional expiry time (24-hour format)
     };
-  });
+  };
+
+  const [formData, setFormData] = useState(getInitialFormData);
+
+  const router = useRouter();
+  // Checking active/expired rides
+  const [activeRideAlertOpen, setActiveRideAlertOpen] = useState(false);
+  const [expiredRideAlertOpen, setExpiredRideAlertOpen] = useState(false);
+
+  // Track initial form data for change detection
+  const [initialFormData, setInitialFormData] = useState(getInitialFormData);
+
   const { toast } = useToast();
 
+  // Check authentication on mount
   useEffect(() => {
-    fetchCommunities();
-    fetchUserSettings();
-    // Auto-fill phone from profile when dialog opens (only if creating new ride)
-    if (!rideToEdit) {
-      fetchUserPhone();
-    }
+    const checkAuth = async () => {
+      try {
+        const data: any = await authApi.getCurrentUser();
+        setIsAuthenticated(!!(data && data.user));
+      } catch (error) {
+        setIsAuthenticated(false);
+      }
+    };
+    checkAuth();
   }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchCommunities();
+      fetchUserSettings();
+      // Auto-fill phone from profile when dialog opens (only if creating new ride)
+      if (!rideToEdit) {
+        fetchUserPhone();
+      }
+    }
+  }, [isAuthenticated]);
+
+  // Track unsaved changes
+  useEffect(() => {
+    const hasChanges = JSON.stringify(formData) !== JSON.stringify(initialFormData);
+    setHasUnsavedChanges(hasChanges);
+  }, [formData, initialFormData]);
 
   const fetchUserSettings = async () => {
     try {
@@ -146,16 +195,11 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
     try {
       const userData: any = await authApi.getCurrentUser();
       if (userData?.profile?.phone) {
-        setFormData(prev => {
-          // Only set if phone is empty (don't overwrite existing value)
-          if (!prev.phone) {
-            return {
-              ...prev,
-              phone: userData.profile.phone,
-            };
-          }
-          return prev;
-        });
+        setUserPhoneFromProfile(userData.profile.phone);
+        setFormData(prev => ({
+          ...prev,
+          phone: userData.profile.phone,
+        }));
       }
     } catch (error) {
       // Ignore errors
@@ -164,33 +208,50 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
 
   useEffect(() => {
     if (rideToEdit) {
-      // Convert 24-hour time to 12-hour format for display
-      const time12 = rideToEdit.ride_time ? convert24To12(rideToEdit.ride_time) : '';
-      setFormData({
+      // Handle legacy community_id compatibility or array community_ids
+      let commIds: string[] = [];
+      if (rideToEdit.community_ids && Array.isArray(rideToEdit.community_ids)) {
+        commIds = rideToEdit.community_ids;
+      } else if (rideToEdit.community_id && rideToEdit.community_id !== 'none') {
+        commIds = [rideToEdit.community_id];
+      }
+
+      // Get current date/time for auto-update when editing
+      const { date, time } = getCurrentDateTime();
+      const time12 = convert24To12(time);
+
+      const editFormData = {
         type: rideToEdit.type,
+        gender_preference: rideToEdit.gender_preference || 'girls_only',
         start_location: rideToEdit.start_location,
         end_location: rideToEdit.end_location,
-        ride_date: rideToEdit.ride_date,
-        ride_time: time12,
+        ride_date: date, // Auto-update to current date
+        ride_time: time12, // Auto-update to current time
         seats_available: rideToEdit.seats_available?.toString() || '',
         description: rideToEdit.description || '',
         phone: rideToEdit.phone || '',
-        community_id: rideToEdit.community_id || 'none',
+        community_ids: commIds,
         recurring_days: rideToEdit.recurring_days || [],
         expiry_date: '', // Will be calculated from expires_at if needed
         expiry_time: '',
-      });
+      };
+
+      setFormData(editFormData);
+      setInitialFormData(editFormData); // Set initial state for change tracking
     } else {
       // Reset to current date/time when creating new ride
       const { date, time } = getCurrentDateTime();
       const time12 = convert24To12(time);
-      setFormData(prev => ({
-        ...prev,
+      const newFormData = {
+        ...getInitialFormData(),
         ride_date: date,
         ride_time: time12,
-      }));
+        community_ids: preselectedCommunityId ? [preselectedCommunityId] : [],
+      };
+      setFormData(newFormData);
+      setInitialFormData(newFormData);
     }
-  }, [rideToEdit]);
+  }, [rideToEdit, preselectedCommunityId]);
 
   const fetchCommunities = async () => {
     try {
@@ -223,6 +284,7 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
 
   const [showProfileDialog, setShowProfileDialog] = useState(false);
   const [profileCompletionMessage, setProfileCompletionMessage] = useState('');
+  const [userPhoneFromProfile, setUserPhoneFromProfile] = useState('');
 
   // Check profile function returns boolean indicating if profile is complete
   const checkProfile = async (): Promise<boolean> => {
@@ -264,6 +326,40 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
       e.stopPropagation();
     }
 
+    // If editing, just open
+    if (rideToEdit) {
+      setOpen(true);
+      return;
+    }
+
+    // Reset form data for new ride creation
+    const freshFormData = getInitialFormData();
+    // Auto-select preselected community if provided
+    if (preselectedCommunityId) {
+      freshFormData.community_ids = [preselectedCommunityId];
+    }
+    setFormData(freshFormData);
+    setInitialFormData(freshFormData);
+    setHasUnsavedChanges(false);
+
+    // Check for existing active/expired rides if creating new
+    try {
+      const rideStatus = await ridesApi.checkRides();
+      if (rideStatus.hasActiveRide) {
+        setActiveRideAlertOpen(true);
+        return;
+      }
+      if (rideStatus.hasExpiredRide) {
+        setExpiredRideAlertOpen(true);
+        // We still allow them to proceed if they choose to "Create New Ride" in the alert
+        // But we wait for user action in the alert
+        return;
+      }
+    } catch (error) {
+      console.error('Failed to check rides:', error);
+      // Fallback: allow opening if check fails
+    }
+
     const isComplete = await checkProfile();
     if (isComplete) {
       setOpen(true);
@@ -288,45 +384,58 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
     setErrors({});
 
     try {
-      // Ensure date and time are set to current if not already set
+      // Always use current date and time
       const { date, time } = getCurrentDateTime();
-      const rideDate = formData.ride_date || date;
-      // Convert 12-hour time to 24-hour format for storage
-      const rideTime24 = convert12To24(formData.ride_time || convert24To12(time));
+      // When editing, always use current date; otherwise use form data or current date
+      const rideDate = rideToEdit ? date : (formData.ride_date || date);
+      // Use current time directly (already in 24-hour format from getCurrentDateTime)
+      const rideTime24 = time;
 
-      // Calculate expiration
+      // Calculate expiration (using local timezone-aware parsing)
       let expiresAt: Date;
-      
+
       // If user has disabled auto-expiry, set to a far future date (30 days)
       if (disableAutoExpiry) {
         expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
         expiresAt.setHours(23, 59, 59, 999);
-      } 
+      }
       // If user provided custom expiry date/time, use that
       else if (formData.expiry_date) {
+        // Parse date in local timezone
+        const [year, month, day] = formData.expiry_date.split('-').map(Number);
+
         if (formData.expiry_time) {
           // Both date and time provided
           const [expHours, expMinutes] = formData.expiry_time.split(':').map(Number);
-          expiresAt = new Date(formData.expiry_date);
-          expiresAt.setHours(expHours, expMinutes, 0, 0);
+          expiresAt = new Date(year, month - 1, day, expHours, expMinutes, 0, 0);
         } else {
           // Only date provided, set to end of day
-          expiresAt = new Date(formData.expiry_date);
-          expiresAt.setHours(23, 59, 59, 999);
+          expiresAt = new Date(year, month - 1, day, 23, 59, 59, 999);
         }
       }
       // Otherwise, default to 24 hours after scheduled ride time
       else {
+        // Parse ride date in local timezone
+        const [year, month, day] = rideDate.split('-').map(Number);
         const [hours, minutes] = rideTime24.split(':').map(Number);
-        const scheduledDateTime = new Date(rideDate);
-        scheduledDateTime.setHours(hours, minutes, 0, 0);
-        expiresAt = new Date(scheduledDateTime);
-        expiresAt.setHours(expiresAt.getHours() + 24);
+
+        // Create scheduled date/time in local timezone
+        const scheduledDateTime = new Date(year, month - 1, day, hours, minutes, 0, 0);
+
+        // Add 24 hours for expiration
+        expiresAt = new Date(scheduledDateTime.getTime() + 24 * 60 * 60 * 1000);
+      }
+
+      // Safety check: ensure expiration is at least 1 hour in the future
+      const minExpiration = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
+      if (expiresAt < minExpiration) {
+        expiresAt = minExpiration;
       }
 
       // Validate with Zod schema (using 24-hour format for rideTime)
       const validatedData = rideSchema.parse({
         type: formData.type as 'offering' | 'seeking',
+        genderPreference: formData.gender_preference as 'girls_only' | 'boys_only' | 'both',
         startLocation: formData.start_location,
         endLocation: formData.end_location,
         rideDate: rideDate,
@@ -334,7 +443,7 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
         seatsAvailable: formData.seats_available ? parseInt(formData.seats_available) : undefined,
         description: formData.description || undefined,
         phone: formData.phone || undefined,
-        communityId: formData.community_id === 'none' ? null : formData.community_id,
+        communityIds: formData.community_ids.length > 0 ? formData.community_ids : undefined,
         recurringDays: formData.recurring_days.length > 0 ? formData.recurring_days : undefined,
       });
 
@@ -361,11 +470,15 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
           ...rideData,
           start_location: rideData.startLocation,
           end_location: rideData.endLocation,
+          gender_preference: rideData.genderPreference || rideToEdit.gender_preference,
           ride_date: rideData.rideDate,
           ride_time: rideData.rideTime,
           seats_available: rideData.seatsAvailable,
           phone: rideData.phone,
-          community_id: rideData.communityId,
+          community_ids: rideData.communityIds || [],
+          // Keep legacy for safety if needed
+          community_id: rideData.communityIds && rideData.communityIds.length > 0 ? rideData.communityIds[0] : null,
+          updated_at: new Date().toISOString(),
         };
 
         if (onRideUpdated) {
@@ -406,7 +519,8 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
           expires_at: rideData.expiresAt,
           user_id: currentUser?.id || '',
           created_at: new Date().toISOString(),
-          community_id: rideData.communityId,
+          updated_at: new Date().toISOString(),
+          community_ids: rideData.communityIds || [],
           recurring_days: rideData.recurringDays || [],
           profiles: currentUser ? { full_name: currentUser.email?.split('@')[0] || 'You' } : null,
         };
@@ -426,13 +540,19 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
             onRideCreated(response.ride);
           }
         }).catch((error: any) => {
-          toast({
-            title: 'Error',
-            description: error.message || 'Failed to create ride',
-            variant: 'destructive',
-          });
-          setOpen(true); // Reopen dialog on error
-          setErrors(previousErrors);
+          // Identify if it was an Active Ride Error
+          if (error.hasActiveRide) {
+            setActiveRideAlertOpen(true);
+            // Don't reopen dialog form
+          } else {
+            toast({
+              title: 'Error',
+              description: error.message || 'Failed to create ride',
+              variant: 'destructive',
+            });
+            setOpen(true); // Reopen dialog on error
+            setErrors(previousErrors);
+          }
         });
       }
 
@@ -440,8 +560,9 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
       if (!rideToEdit) {
         const { date, time } = getCurrentDateTime();
         const time12 = convert24To12(time);
-        setFormData({
+        const resetData = {
           type: 'offering',
+          gender_preference: 'girls_only',
           start_location: '',
           end_location: '',
           ride_date: date,
@@ -449,11 +570,14 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
           seats_available: '',
           description: '',
           phone: '',
-          community_id: 'none',
+          community_ids: [],
           recurring_days: [],
           expiry_date: '',
           expiry_time: '',
-        });
+        };
+        setFormData(resetData);
+        setInitialFormData(resetData);
+        setHasUnsavedChanges(false);
       }
     } catch (error: any) {
       // Handle Zod validation errors
@@ -486,18 +610,63 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
     }
   };
 
+  const handleNavigateToMyRides = () => {
+    setActiveRideAlertOpen(false);
+    setExpiredRideAlertOpen(false);
+    setOpen(false);
+    // Navigate to dashboard with my-rides tab active
+    router.replace('/dashboard?tab=my-rides');
+  };
+
+  const communityOptions = communities.map(c => ({
+    label: c.name,
+    value: c.id
+  }));
+
   return (
     <>
+      <RideLimitAlert
+        open={activeRideAlertOpen}
+        onOpenChange={setActiveRideAlertOpen}
+        type="active"
+        onNavigateToMyRides={handleNavigateToMyRides}
+      />
+
+      <RideLimitAlert
+        open={expiredRideAlertOpen}
+        onOpenChange={setExpiredRideAlertOpen}
+        type="expired"
+        onNavigateToMyRides={handleNavigateToMyRides}
+        onProceed={() => {
+          setExpiredRideAlertOpen(false);
+          setOpen(true);
+        }}
+      />
+
       {children ? (
         <div onClick={handleTriggerClick} className="inline-block cursor-pointer">
           {children}
         </div>
       ) : null}
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog
+        open={open}
+        onOpenChange={(newOpen) => {
+          // Prevent closing if there are unsaved changes
+          if (!newOpen && hasUnsavedChanges) {
+            const confirmClose = window.confirm(
+              'You have unsaved changes. Are you sure you want to close? Your entered data will be lost.'
+            );
+            if (!confirmClose) {
+              return; // Don't close the dialog
+            }
+          }
+          setOpen(newOpen);
+        }}
+      >
         {/* Mobile-first: full width on mobile, max-w on desktop, scrollable content */}
         <DialogContent className="w-[calc(100%-1rem)] max-w-2xl max-h-[90vh] overflow-y-auto sm:w-full">
-            <DialogHeader>
+          <DialogHeader>
             <DialogTitle>{rideToEdit ? 'Edit Ride' : 'Post a Ride'}</DialogTitle>
             <DialogDescription>
               {rideToEdit ? 'Update your ride details' : 'Share your ride or request a ride from the community'}
@@ -512,40 +681,49 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
           {/* Mobile-first: adequate spacing between form fields */}
           <form onSubmit={handleSubmit} className="flex flex-col gap-[1.25rem] sm:gap-[1rem]">
             <div className="flex flex-col gap-[0.5rem]">
-              <Label>Type of Ride</Label>
-              <RadioGroup
+              <Label htmlFor="type">Type of Ride</Label>
+              <Select
                 value={formData.type}
                 onValueChange={(value) => setFormData({ ...formData, type: value })}
               >
-                <div className="flex items-center gap-[0.75rem] min-h-[2.75rem]">
-                  <RadioGroupItem value="offering" id="offering" />
-                  <Label htmlFor="offering" className="cursor-pointer">Offering a Ride</Label>
-                </div>
-                <div className="flex items-center gap-[0.75rem] min-h-[2.75rem]">
-                  <RadioGroupItem value="seeking" id="seeking" />
-                  <Label htmlFor="seeking" className="cursor-pointer">Seeking a Ride</Label>
-                </div>
-              </RadioGroup>
+                <SelectTrigger id="type">
+                  <SelectValue placeholder="Select ride type" />
+                </SelectTrigger>
+                <SelectContent position="popper" side="bottom" align="start" sideOffset={4}>
+                  <SelectItem value="offering">Offering a Ride</SelectItem>
+                  <SelectItem value="seeking">Seeking a Ride</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex flex-col gap-[0.5rem]">
-              <Label htmlFor="community">Community (Optional)</Label>
+              <Label htmlFor="gender_preference">Gender Preference <span className="text-destructive">*</span></Label>
               <Select
-                value={formData.community_id}
-                onValueChange={(value) => setFormData({ ...formData, community_id: value })}
+                value={formData.gender_preference}
+                onValueChange={(value) => setFormData({ ...formData, gender_preference: value })}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a community or leave blank for public" />
+                <SelectTrigger id="gender_preference">
+                  <SelectValue placeholder="Select gender preference" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Public (No community)</SelectItem>
-                  {communities.map((community) => (
-                    <SelectItem key={community.id} value={community.id}>
-                      {community.name}
-                    </SelectItem>
-                  ))}
+                <SelectContent position="popper" side="bottom" align="start" sideOffset={4}>
+                  <SelectItem value="girls_only">Girls Only</SelectItem>
+                  <SelectItem value="boys_only">Boys Only</SelectItem>
+                  <SelectItem value="both">Both</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="flex flex-col gap-[0.5rem]">
+              <Label htmlFor="community">Communities (Optional)</Label>
+              <MultiSelect
+                options={communityOptions}
+                selected={formData.community_ids}
+                onChange={(selected) => setFormData({ ...formData, community_ids: selected })}
+                placeholder="Select communities (optional)"
+              />
+              <p className="text-xs text-muted-foreground">
+                Select multiple communities to post to all of them at once.
+              </p>
             </div>
 
             {/* Mobile-first: stack on mobile, side-by-side on tablet+ */}
@@ -586,69 +764,48 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
               </div>
             </div>
 
-            {/* Ride Date and Time (12-hour format) */}
-            <div className="grid grid-cols-1 gap-[1.25rem] sm:grid-cols-2 sm:gap-[1rem]">
-              <div className="flex flex-col gap-[0.5rem]">
-                <Label htmlFor="ride_date">Ride Date <span className="text-destructive">*</span></Label>
-                <Input
-                  ref={rideDateRef}
-                  id="ride_date"
-                  type="date"
-                  value={formData.ride_date}
-                  onChange={(e) => {
-                    setFormData({ ...formData, ride_date: e.target.value });
-                  }}
-                  onMouseDown={(e) => {
-                    // If already focused (picker is open), close it
-                    if (document.activeElement === rideDateRef.current) {
-                      e.preventDefault();
-                      if (rideDateRef.current) {
-                        rideDateRef.current.blur();
-                      }
+            {/* Ride Date */}
+            <div className="flex flex-col gap-[0.5rem]">
+              <Label htmlFor="ride_date">Ride Date <span className="text-destructive">*</span></Label>
+              <Input
+                ref={rideDateRef}
+                id="ride_date"
+                type="date"
+                value={formData.ride_date}
+                onChange={(e) => {
+                  setFormData({ ...formData, ride_date: e.target.value });
+                  // Clear time error if date changes to future date
+                  if (errors.ride_time) {
+                    const selectedDate = new Date(e.target.value);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    selectedDate.setHours(0, 0, 0, 0);
+
+                    if (selectedDate > today) {
+                      const newErrors = { ...errors };
+                      delete newErrors.ride_time;
+                      setErrors(newErrors);
                     }
-                  }}
-                  onFocus={() => {
-                    setIsRideDateOpen(true);
-                  }}
-                  onBlur={() => {
-                    setIsRideDateOpen(false);
-                  }}
-                  min={new Date().toISOString().split('T')[0]}
-                  required
-                />
-              </div>
-              <div className="flex flex-col gap-[0.5rem]">
-                <Label htmlFor="ride_time">Ride Time</Label>
-                <Input
-                  id="ride_time"
-                  type="text"
-                  placeholder="02:30 PM"
-                  value={formData.ride_time}
-                  onChange={(e) => {
-                    // Allow only valid 12-hour format input
-                    const value = e.target.value;
-                    if (value === '' || /^(\d{1,2}):(\d{2})\s?(AM|PM)$/i.test(value) || /^(\d{1,2}):(\d{2})$/i.test(value)) {
-                      setFormData({ ...formData, ride_time: value });
+                  }
+                }}
+                onMouseDown={(e) => {
+                  // If already focused (picker is open), close it
+                  if (document.activeElement === rideDateRef.current) {
+                    e.preventDefault();
+                    if (rideDateRef.current) {
+                      rideDateRef.current.blur();
                     }
-                  }}
-                  onBlur={(e) => {
-                    // Auto-format on blur if incomplete
-                    const value = e.target.value.trim();
-                    if (value && !value.includes('AM') && !value.includes('PM')) {
-                      // Try to add AM/PM based on current time or default to PM
-                      const match = value.match(/(\d{1,2}):(\d{2})/);
-                      if (match) {
-                        const hours = parseInt(match[1]);
-                        const minutes = match[2];
-                        const ampm = hours < 12 ? 'AM' : 'PM';
-                        const hours12 = hours > 12 ? hours - 12 : (hours === 0 ? 12 : hours);
-                        setFormData({ ...formData, ride_time: `${String(hours12).padStart(2, '0')}:${minutes} ${ampm}` });
-                      }
-                    }
-                  }}
-                  required
-                />
-              </div>
+                  }
+                }}
+                onFocus={() => {
+                  setIsRideDateOpen(true);
+                }}
+                onBlur={() => {
+                  setIsRideDateOpen(false);
+                }}
+                min={new Date().toISOString().split('T')[0]}
+                required
+              />
             </div>
 
             {/* Optional Expiry Date and Time (24-hour format) */}
@@ -740,7 +897,7 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
                 type="tel"
                 maxLength={15}
                 placeholder="+92 300 1234567 or 03001234567"
-                value={formData.phone}
+                value={formData.phone || userPhoneFromProfile}
                 onChange={(e) => {
                   setFormData({ ...formData, phone: e.target.value });
                   if (errors.phone) setErrors({ ...errors, phone: '' });
@@ -754,16 +911,31 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
             </div>
 
             <div className="flex flex-col gap-[0.5rem]">
-              <Label htmlFor="description">Description (optional)</Label>
+              <Label htmlFor="description">Description (optional, max 200 chars)</Label>
               <Textarea
                 id="description"
                 placeholder="Any additional details..."
                 value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
+                maxLength={200}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setFormData({ ...formData, description: value });
+                  if (value.length > 200) {
+                    setErrors(prev => ({ ...prev, description: 'Description must be 200 characters or less' }));
+                  } else if (errors.description) {
+                    const { description, ...rest } = errors;
+                    setErrors(rest);
+                  }
+                }}
                 rows={3}
+                className={errors.description ? 'border-destructive' : ''}
               />
+              <div className="text-xs text-muted-foreground text-right">
+                {formData.description.length}/200
+              </div>
+              {errors.description && (
+                <p className="text-base text-destructive leading-relaxed sm:text-sm sm:leading-normal">{errors.description}</p>
+              )}
             </div>
 
             <div className="flex flex-col gap-[0.5rem]">
@@ -820,6 +992,36 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
           });
         }}
       />
+
+      {/* Auth Modal - shown when unauthenticated user tries to create a ride */}
+      <Dialog open={showAuthModal} onOpenChange={setShowAuthModal}>
+        <DialogContent className="animate-scale-in">
+          <DialogHeader>
+            <DialogTitle>Sign In Required</DialogTitle>
+            <DialogDescription>
+              You need to sign in to create a ride. Create an account or sign in to continue.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 pt-4">
+            <Button
+              onClick={() => {
+                router.push('/auth');
+                setShowAuthModal(false);
+              }}
+              className="w-full"
+            >
+              Sign In / Sign Up
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setShowAuthModal(false)}
+              className="w-full"
+            >
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

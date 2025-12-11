@@ -269,6 +269,7 @@ export const ridesApi = {
 
   createRide: async (data: {
     type: 'offering' | 'seeking';
+    genderPreference: 'girls_only' | 'boys_only' | 'both';
     startLocation: string;
     endLocation: string;
     rideDate: string;
@@ -277,7 +278,7 @@ export const ridesApi = {
     description?: string;
     phone?: string;
     expiresAt: string;
-    communityId?: string | null;
+    communityIds?: string[];
     recurringDays?: string[];
   }) => {
     const token = getAuthToken();
@@ -295,6 +296,7 @@ export const ridesApi = {
 
   updateRide: async (id: string, data: Partial<{
     type: 'offering' | 'seeking';
+    genderPreference: 'girls_only' | 'boys_only' | 'both';
     startLocation: string;
     endLocation: string;
     rideDate: string;
@@ -304,7 +306,7 @@ export const ridesApi = {
     phone?: string;
     expiresAt: string;
     isArchived?: boolean;
-    communityId?: string | null;
+    communityIds?: string[];
     recurringDays?: string[];
   }>) => {
     const token = getAuthToken();
@@ -331,6 +333,24 @@ export const ridesApi = {
       credentials: 'include',
     });
     return handleResponse(response);
+  },
+
+  checkRides: async () => {
+    const token = getAuthToken();
+    const response = await fetch(`${API_BASE}/rides/check`, {
+      method: 'GET',
+      headers: {
+        ...getAuthHeaders(),
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      credentials: 'include',
+    });
+    return handleResponse<{
+      hasActiveRide: boolean;
+      hasExpiredRide: boolean;
+      activeRide: any;
+      expiredRide: any;
+    }>(response);
   },
 };
 
@@ -494,7 +514,7 @@ export const communityRequestsApi = {
 
   getRequests: async (status?: 'pending' | 'approved' | 'rejected'): Promise<CommunityRequestsResponse> => {
     const token = getAuthToken();
-    const url = status 
+    const url = status
       ? `${API_BASE}/community-requests?status=${status}`
       : `${API_BASE}/community-requests`;
     const response = await fetch(url, {

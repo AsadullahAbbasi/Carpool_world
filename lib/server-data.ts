@@ -32,6 +32,7 @@ export interface ServerProfile {
 export interface ServerRide {
   id: string;
   type: string;
+  gender_preference?: string;
   start_location: string;
   end_location: string;
   ride_date: string;
@@ -43,7 +44,9 @@ export interface ServerRide {
   is_archived?: boolean;
   user_id: string;
   created_at: string;
+  updated_at?: string;
   community_id?: string | null;
+  community_ids?: string[] | null;
   recurring_days?: string[] | null;
   profiles?: {
     full_name: string;
@@ -55,6 +58,7 @@ function transformRide(ride: any, profile?: any): ServerRide {
   return {
     id: ride._id.toString(),
     type: ride.type,
+    gender_preference: ride.genderPreference || ride.gender_preference,
     start_location: ride.startLocation,
     end_location: ride.endLocation,
     ride_date: ride.rideDate ? new Date(ride.rideDate).toISOString().split('T')[0] : '',
@@ -66,7 +70,9 @@ function transformRide(ride: any, profile?: any): ServerRide {
     is_archived: ride.isArchived || false,
     user_id: ride.userId || ride.user_id || '',
     created_at: ride.createdAt ? new Date(ride.createdAt).toISOString() : new Date().toISOString(),
+    updated_at: ride.updatedAt ? new Date(ride.updatedAt).toISOString() : ride.createdAt ? new Date(ride.createdAt).toISOString() : new Date().toISOString(),
     community_id: ride.communityId || null,
+    community_ids: ride.communityIds || ride.community_ids || [],
     recurring_days: ride.recurringDays || null,
     profiles: profile ? {
       full_name: profile.fullName || 'Unknown',

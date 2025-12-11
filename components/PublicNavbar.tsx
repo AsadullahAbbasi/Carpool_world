@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
-import { Car, Menu, X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 
 const PublicNavbar = () => {
   const [scrolled, setScrolled] = useState(false);
@@ -32,8 +33,15 @@ const PublicNavbar = () => {
         <div className="flex items-center justify-between">
           {/* Logo - Mobile-first sizing */}
           <Link href="/" className="flex items-center gap-[0.5rem] sm:gap-[0.75rem]">
-            <div className="w-[2.5rem] h-[2.5rem] bg-foreground rounded-lg flex items-center justify-center sm:w-[2.75rem] sm:h-[2.75rem]">
-              <Car className="w-[1.5rem] h-[1.5rem] text-background sm:w-[1.75rem] sm:h-[1.75rem]" />
+            <div className="w-[2.5rem] h-[2.5rem] relative flex items-center justify-center sm:w-[2.75rem] sm:h-[2.75rem]">
+              <Image 
+                src="/RideShare_Logo.png" 
+                alt="RideShare Logo" 
+                width={44}
+                height={44}
+                className="w-full h-full object-contain"
+                priority
+              />
             </div>
             {/* Fluid text scaling */}
             <span className="font-bold text-[clamp(1.125rem,2vw+0.625rem,1.25rem)] leading-none">RideShare</span>
@@ -42,13 +50,13 @@ const PublicNavbar = () => {
           {/* Desktop Menu */}
           <div className="hidden md:flex items-center gap-[1.5rem]">
             <Link
-              href="/dashboard"
+              href="/dashboard?tab=rides"
               className="text-base font-medium hover:text-foreground/80 transition-colors sm:text-sm"
             >
               Browse Rides
             </Link>
             <Link
-              href="/dashboard"
+              href="/dashboard?tab=communities"
               className="text-base font-medium hover:text-foreground/80 transition-colors sm:text-sm"
             >
               Communities
@@ -84,14 +92,14 @@ const PublicNavbar = () => {
           <div className="md:hidden mt-[1rem] pb-[1rem] border-t border-border animate-slide-up">
             <div className="flex flex-col gap-[1rem] pt-[1rem]">
               <Link
-                href="/dashboard"
+                href="/dashboard?tab=rides"
                 className="text-base font-medium hover:text-foreground/80 transition-colors min-h-[2.75rem] flex items-center"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Browse Rides
               </Link>
               <Link
-                href="/dashboard"
+                href="/dashboard?tab=communities"
                 className="text-base font-medium hover:text-foreground/80 transition-colors min-h-[2.75rem] flex items-center"
                 onClick={() => setMobileMenuOpen(false)}
               >

@@ -7,16 +7,18 @@ import { z } from 'zod';
 
 const updateRideSchema = z.object({
   type: z.enum(['offering', 'seeking']).optional(),
+  genderPreference: z.enum(['girls_only', 'boys_only', 'both']).optional(),
   startLocation: z.string().min(1).optional(),
   endLocation: z.string().min(1).optional(),
   rideDate: z.string().optional(),
   rideTime: z.string().optional(),
   seatsAvailable: z.number().optional(),
-  description: z.string().optional(),
+  description: z.string().max(200, 'Description must be 200 characters or less').optional(),
   phone: z.string().optional(),
   expiresAt: z.string().optional(),
   isArchived: z.boolean().optional(),
   communityId: z.string().nullable().optional(),
+  communityIds: z.array(z.string()).optional(),
   recurringDays: z.array(z.string()).optional(),
 });
 
@@ -25,6 +27,7 @@ function transformRide(ride: any, profile?: any) {
   return {
     id: ride._id?.toString() || ride.id,
     type: ride.type,
+    gender_preference: ride.genderPreference || ride.gender_preference,
     start_location: ride.startLocation || ride.start_location,
     end_location: ride.endLocation || ride.end_location,
     ride_date: ride.rideDate ? new Date(ride.rideDate).toISOString().split('T')[0] : ride.ride_date,
@@ -38,6 +41,7 @@ function transformRide(ride: any, profile?: any) {
     created_at: ride.createdAt ? new Date(ride.createdAt).toISOString() : ride.created_at,
     updated_at: ride.updatedAt ? new Date(ride.updatedAt).toISOString() : ride.updated_at,
     community_id: ride.communityId ?? ride.community_id,
+    community_ids: ride.communityIds || ride.community_ids || [],
     recurring_days: ride.recurringDays || ride.recurring_days || [],
     profiles: profile ? {
       full_name: profile.fullName || profile.full_name,
@@ -70,26 +74,65 @@ export const PUT = authMiddleware(async (req) => {
       );
     }
 
-    // Update fields
-    if (data.type !== undefined) ride.type = data.type;
-    if (data.startLocation !== undefined) ride.startLocation = data.startLocation;
-    if (data.endLocation !== undefined) ride.endLocation = data.endLocation;
-    if (data.rideDate !== undefined) ride.rideDate = new Date(data.rideDate);
-    if (data.rideTime !== undefined) ride.rideTime = data.rideTime;
-    if (data.seatsAvailable !== undefined) ride.seatsAvailable = data.seatsAvailable;
-    if (data.description !== undefined) ride.description = data.description;
-    if (data.phone !== undefined) ride.phone = data.phone;
-    if (data.expiresAt !== undefined) ride.expiresAt = new Date(data.expiresAt);
-    if (data.isArchived !== undefined) ride.isArchived = data.isArchived;
-    if (data.communityId !== undefined) ride.communityId = data.communityId ?? undefined;
-    if (data.recurringDays !== undefined) ride.recurringDays = data.recurringDays || [];
+    // Prepare update object for database-level update
+    const now = new Date();
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0); // Set to start of day
+    
+    // Get current time in HH:MM format (24-hour)
+    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    
+    const updateData: any = {
+      // Always update rideDate to current date when updating a ride
+      rideDate: today,
+      // Always update rideTime to current time when updating a ride
+      rideTime: currentTime,
+      // Track update time explicitly
+      updatedAt: now,
+    };
 
-    await ride.save();
+    // Update other fields if provided
+    if (data.type !== undefined) updateData.type = data.type;
+    if (data.startLocation !== undefined) updateData.startLocation = data.startLocation;
+    if (data.endLocation !== undefined) updateData.endLocation = data.endLocation;
+    if (data.genderPreference !== undefined) updateData.genderPreference = data.genderPreference;
+    if (data.seatsAvailable !== undefined) updateData.seatsAvailable = data.seatsAvailable;
+    if (data.description !== undefined) updateData.description = data.description;
+    if (data.phone !== undefined) updateData.phone = data.phone;
+    if (data.expiresAt !== undefined) updateData.expiresAt = new Date(data.expiresAt);
+    if (data.isArchived !== undefined) updateData.isArchived = data.isArchived;
+    if (data.communityId !== undefined) updateData.communityId = data.communityId ?? undefined;
+    if (data.communityIds !== undefined) updateData.communityIds = data.communityIds || [];
+    if (data.recurringDays !== undefined) updateData.recurringDays = data.recurringDays || [];
+
+    // Log timestamp changes for debugging
+    console.log('Updating ride timestamps', {
+      rideId,
+      prevCreatedAt: ride.createdAt,
+      prevUpdatedAt: ride.updatedAt,
+      newRideDate: today,
+      newRideTime: currentTime,
+      newUpdatedAt: now,
+    });
+
+    // Use findByIdAndUpdate for database-level update
+    const updatedRide = await Ride.findByIdAndUpdate(
+      rideId,
+      { $set: updateData },
+      { new: true, runValidators: true, timestamps: true }
+    );
+
+    if (!updatedRide) {
+      return NextResponse.json(
+        { error: 'Failed to update ride' },
+        { status: 500 }
+      );
+    }
 
     const profile = await Profile.findOne({ userId }).lean();
 
     return NextResponse.json({
-      ride: transformRide(ride, profile || undefined),
+      ride: transformRide(updatedRide, profile || undefined),
     });
   } catch (error: any) {
     if (error instanceof z.ZodError) {

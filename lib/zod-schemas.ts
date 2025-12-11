@@ -53,6 +53,9 @@ export const nicVerificationSchema = z.object({
 // Ride posting schema
 export const rideSchema = z.object({
   type: z.enum(['offering', 'seeking']),
+  genderPreference: z.enum(['girls_only', 'boys_only', 'both'], {
+    required_error: 'Gender preference is required',
+  }),
   startLocation: z.string().min(1, 'Start location is required'),
   endLocation: z.string().min(1, 'End location is required'),
   rideDate: z.string().refine(
@@ -68,9 +71,9 @@ export const rideSchema = z.object({
   ),
   rideTime: z.string().regex(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format (HH:MM)'),
   seatsAvailable: z.number().int().positive().optional(),
-  description: z.string().optional(),
+  description: z.string().max(200, 'Description must be 200 characters or less').optional(),
   phone: phoneSchema.optional(),
-  communityId: z.string().optional().nullable(),
+  communityIds: z.array(z.string()).optional(),
   recurringDays: z.array(z.string()).optional(),
 });
 
