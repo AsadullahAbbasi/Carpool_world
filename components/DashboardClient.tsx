@@ -36,7 +36,7 @@ interface ServerProfile {
 interface ServerRide {
   id: string;
   type: string;
-  gender_preference: string;
+  gender_preference?: string;
   start_location: string;
   end_location: string;
   ride_date: string;
