@@ -167,7 +167,14 @@ function DashboardContent({
       await authApi.logout();
       setSession(null);
       setProfile(null);
-      router.push('/auth');
+
+      // Stay on dashboard (dashboard is public), but ensure we are not on an auth-only tab.
+      if (activeTab === 'my-rides') {
+        setActiveTab('rides');
+      }
+
+      // Clean URL (and prevent navigating away)
+      router.replace('/dashboard', { scroll: false });
     } catch (error: any) {
       toast({
         title: 'Error',

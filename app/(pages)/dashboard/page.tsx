@@ -1,5 +1,3 @@
-import { Suspense } from 'react';
-import { redirect } from 'next/navigation';
 import { getServerUser, getServerRides, getServerCommunities, getServerUserCommunities } from '@/lib/server-data';
 import DashboardClient from '@/components/DashboardClient';
 
@@ -34,17 +32,13 @@ export default async function DashboardPage() {
   // Allow unauthenticated access - users can browse without signing in
   // Authentication is only required for creating rides
 
-  // Pre-fetch data for all tabs
-  const [allRides, myRides, communities, userCommunities] = await Promise.all([
+  // Pre-fetch only what we need for first paint.
+  // "My Rides" is fetched client-side when that tab is opened.
+  const [allRides, communities, userCommunities] = await Promise.all([
     getServerRides({
       sortBy: 'newest',
       filterType: 'all',
     }),
-    user ? getServerRides({
-      userId: user.id,
-      sortBy: 'newest',
-      filterType: 'all',
-    }) : Promise.resolve([]),
     getServerCommunities(),
     user ? getServerUserCommunities(user.id) : Promise.resolve([]),
   ]);
@@ -54,7 +48,7 @@ export default async function DashboardPage() {
       initialUser={user}
       initialProfile={profile}
       initialRides={allRides}
-      initialMyRides={myRides}
+      initialMyRides={[]}
       initialCommunities={communities}
       initialUserCommunities={userCommunities}
     />

@@ -16,6 +16,7 @@ const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -46,6 +47,8 @@ const Auth = () => {
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isRedirecting) return;
 
     // Validate email if provided
     if (email) {
@@ -134,7 +137,8 @@ const Auth = () => {
             title: 'Welcome back!',
             description: 'You have successfully logged in.',
           });
-          router.push('/dashboard');
+          setIsRedirecting(true);
+          router.replace('/dashboard');
         } catch (loginError: any) {
           // Check if it's an email verification error
           if (loginError.message?.includes('Email not verified') || loginError.message?.includes('email')) {
@@ -199,6 +203,17 @@ const Auth = () => {
       setLoading(false);
     }
   };
+
+  if (isRedirecting) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10 p-4">
+        <div className="w-full max-w-md text-center space-y-3">
+          <div className="h-10 w-10 rounded-full border-2 border-muted-foreground/40 border-t-foreground mx-auto animate-spin" />
+          <p className="text-sm text-muted-foreground">Redirecting to dashboard…</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10 p-4">
@@ -298,7 +313,7 @@ const Auth = () => {
             <Button
               type="submit"
               className="w-full bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary"
-              disabled={loading}
+              disabled={loading || isRedirecting}
             >
               {loading ? 'Loading...' : isPasswordRecovery ? 'Update Password' : isForgotPassword ? 'Send Reset Link' : isLogin ? 'Log In' : 'Sign Up'}
             </Button>

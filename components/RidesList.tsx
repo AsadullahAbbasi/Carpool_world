@@ -1008,11 +1008,9 @@ const RidesList = ({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Ride Description</DialogTitle>
-          <DialogDescription>
-            Full details for this ride.
-          </DialogDescription>
+         
         </DialogHeader>
-        <div className="mt-4 whitespace-pre-wrap text-sm sm:text-base">
+        <div className=" whitespace-pre-wrap text-sm sm:text-base">
           {descriptionRide?.description}
         </div>
       </DialogContent>

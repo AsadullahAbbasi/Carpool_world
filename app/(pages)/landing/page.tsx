@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Car, Users, Shield, Clock, MapPin, ArrowRight, CheckCircle2, Star, Calendar } from 'lucide-react';
 import PublicNavbar from '@/components/PublicNavbar';
 import { format } from 'date-fns';
+import { authApi } from '@/lib/api-client';
 
 // Dummy data for when API fails or no data available
 const DUMMY_RIDES = [
@@ -70,9 +72,50 @@ const DUMMY_COMMUNITIES = [
 
 export default function LandingPage() {
   const router = useRouter();
+  const [checkingAuth, setCheckingAuth] = useState(true);
   // Always show dummy data - no database fetching
   const featuredRides = DUMMY_RIDES;
   const communities = DUMMY_COMMUNITIES;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const check = async () => {
+      try {
+        const data: any = await authApi.getCurrentUser();
+        if (!cancelled && data?.user) {
+          router.replace('/dashboard');
+          return;
+        }
+      } catch {
+        // not logged in
+      }
+
+      if (!cancelled) setCheckingAuth(false);
+    };
+
+    // Check on mount
+    check();
+
+    // Also check if user returns here via back button/tab focus
+    const handleFocus = () => check();
+    const handleVisibilityChange = () => {
+      if (!document.hidden) check();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [router]);
+
+  if (checkingAuth) {
+    return <div className="min-h-screen bg-background" />;
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -447,12 +490,21 @@ export default function LandingPage() {
             <div className="col-span-2 lg:col-span-1">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 relative flex items-center justify-center">
-                  <Image 
-                    src="/RideShare_Logo.png" 
-                    alt="RideShare Logo" 
+                  {/* Light mode */}
+                  <Image
+                    src="/RideShare_Logo.png"
+                    alt="RideShare Logo"
                     width={32}
                     height={32}
-                    className="w-full h-full object-contain"
+                    className="w-full h-full object-contain dark:hidden"
+                  />
+                  {/* Dark mode */}
+                  <Image
+                    src="/nightLogo.png"
+                    alt="RideShare Logo"
+                    width={4}
+                    height={32}
+                    className="w-full h-full object-contain hidden dark:block"
                   />
                 </div>
                 <span className="text-xl font-bold">RideShare</span>

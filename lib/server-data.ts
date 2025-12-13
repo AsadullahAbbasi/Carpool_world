@@ -186,27 +186,40 @@ export async function getServerRides(params?: {
       sortOrder = { rideDate: 1, rideTime: 1 };
     }
 
-    let rides = await Ride.find(query)
+    // Use Mongo text index for search when provided (much faster than JS filtering)
+    if (params?.search) {
+      query.$text = { $search: params.search };
+    }
+
+    const rides = await Ride.find(query)
       .sort(sortOrder)
       .lean();
 
-    // Apply text search if provided
-    if (params?.search) {
-      const lowerQuery = params.search.toLowerCase();
-      rides = rides.filter((ride: any) =>
-        (ride.startLocation || '').toLowerCase().includes(lowerQuery) ||
-        (ride.endLocation || '').toLowerCase().includes(lowerQuery) ||
-        (ride.description || '').toLowerCase().includes(lowerQuery)
-      );
+    // ---- N+1 FIX: fetch all needed profiles in ONE query ----
+    const userIds = Array.from(
+      new Set(
+        rides
+          .map((r: any) => (r.userId || r.user_id) as string | undefined)
+          .filter(Boolean) as string[]
+      )
+    );
+
+    const profiles = userIds.length
+      ? await Profile.find({ userId: { $in: userIds } })
+          .select({ userId: 1, fullName: 1, nicVerified: 1 })
+          .lean()
+      : [];
+
+    const profileByUserId = new Map<string, any>();
+    for (const p of profiles as any[]) {
+      profileByUserId.set(p.userId, p);
     }
 
-    // Fetch profiles for each ride
-    const ridesWithProfiles = await Promise.all(
-      rides.map(async (ride: any) => {
-        const profile = await Profile.findOne({ userId: ride.userId || ride.user_id }).lean();
-        return transformRide(ride, profile || undefined);
-      })
-    );
+    const ridesWithProfiles = rides.map((ride: any) => {
+      const uid = (ride.userId || ride.user_id) as string | undefined;
+      const profile = uid ? profileByUserId.get(uid) : undefined;
+      return transformRide(ride, profile);
+    });
 
     // Apply client-side filters
     let filteredRides = ridesWithProfiles;
@@ -287,6 +300,151 @@ export async function getServerUserCommunities(userId: string): Promise<string[]
   } catch (error) {
     console.error('Server get user communities error:', error);
     return [];
+  }
+}
+
+/**
+ * Get individual community data from server-side
+ */
+export async function getServerCommunity(communityId: string): Promise<ServerCommunity | null> {
+  try {
+    await connectDB();
+
+    const community = await Community.findById(communityId).lean();
+
+    if (!community) {
+      return null;
+    }
+
+    return {
+      id: community._id.toString(),
+      name: community.name,
+      description: community.description || null,
+      created_by: community.createdBy,
+      created_at: community.createdAt ? new Date(community.createdAt).toISOString() : new Date().toISOString(),
+      updated_at: community.updatedAt ? new Date(community.updatedAt).toISOString() : new Date().toISOString(),
+    };
+  } catch (error) {
+    console.error('Server get community error:', error);
+    return null;
+  }
+}
+
+/**
+ * Get community rides from server-side
+ */
+export async function getServerCommunityRides(communityId: string, params?: {
+  sortBy?: string;
+  filterType?: string;
+  userId?: string;
+}): Promise<ServerRide[]> {
+  try {
+    await connectDB();
+
+    let query: any = {
+      communityId: communityId,
+    };
+
+    // If userId is provided (My Rides), filter by user and don't filter expired/archived
+    if (params?.userId) {
+      query.userId = params.userId;
+    } else {
+      // Otherwise, filter out expired and archived rides
+      query.isArchived = { $ne: true };
+      const now = new Date();
+      query.expiresAt = { $gt: now };
+    }
+
+    // Apply ride type filter
+    if (params?.filterType && params.filterType !== 'all' && params.filterType !== 'verified') {
+      if (params.filterType === 'offering' || params.filterType === 'seeking') {
+        query.type = params.filterType;
+      }
+    }
+
+    // Determine sort order
+    let sortOrder: any = { createdAt: -1 }; // Default to newest first
+    if (params?.sortBy === 'oldest') {
+      sortOrder = { createdAt: 1 };
+    } else if (params?.sortBy === 'date') {
+      sortOrder = { rideDate: 1, rideTime: 1 };
+    }
+
+    const rides = await Ride.find(query)
+      .sort(sortOrder)
+      .lean();
+
+    // ---- N+1 FIX: fetch all needed profiles in ONE query ----
+    const userIds = Array.from(
+      new Set(
+        rides
+          .map((r: any) => (r.userId || r.user_id) as string | undefined)
+          .filter(Boolean) as string[]
+      )
+    );
+
+    const profiles = userIds.length
+      ? await Profile.find({ userId: { $in: userIds } })
+          .select({ userId: 1, fullName: 1, nicVerified: 1 })
+          .lean()
+      : [];
+
+    const profileByUserId = new Map<string, any>();
+    for (const p of profiles as any[]) {
+      profileByUserId.set(p.userId, p);
+    }
+
+    const ridesWithProfiles = rides.map((ride: any) => {
+      const uid = (ride.userId || ride.user_id) as string | undefined;
+      const profile = uid ? profileByUserId.get(uid) : undefined;
+      return transformRide(ride, profile);
+    });
+
+    // Apply client-side filters
+    let filteredRides = ridesWithProfiles;
+
+    // Filter by verification status if "verified" filter is selected
+    if (params?.filterType === 'verified') {
+      filteredRides = filteredRides.filter((ride) => ride.profiles?.nic_verified === true);
+    }
+
+    // Apply gender preference filters
+    if (params?.filterType === 'girls_only' || params?.filterType === 'boys_only' || params?.filterType === 'both') {
+      filteredRides = filteredRides.filter((ride) => ride.gender_preference === params?.filterType);
+    }
+
+    // Apply sorting (if not already sorted by MongoDB query, or for date sorting)
+    if (params?.sortBy === 'date') {
+      filteredRides.sort((a, b) => {
+        const dateA = new Date(`${a.ride_date} ${a.ride_time}`);
+        const dateB = new Date(`${b.ride_date} ${b.ride_time}`);
+        return dateA.getTime() - dateB.getTime();
+      });
+    } else if (params?.sortBy === 'oldest') {
+      filteredRides.sort((a, b) => {
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      });
+    }
+
+    return filteredRides;
+  } catch (error) {
+    console.error('Server get community rides error:', error);
+    return [];
+  }
+}
+
+/**
+ * Get community member count from server-side
+ */
+export async function getServerCommunityMemberCount(communityId: string): Promise<number> {
+  try {
+    await connectDB();
+
+    const count = await CommunityMember.countDocuments({ communityId });
+    return count;
+  } catch (error) {
+    console.error('Server get community member count error:', error);
+    return 0;
   }
 }
 

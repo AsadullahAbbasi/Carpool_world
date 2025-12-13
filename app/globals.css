@@ -180,6 +180,19 @@
     @apply transition-all duration-200 ease-out;
   }
 
+  /* Smooth theme transitions */
+  html {
+    /* Smooth transition for all theme changes */
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  /* Smooth transitions for all elements on theme change */
+  *, *::before, *::after {
+    transition-property: background-color, border-color, color, fill, stroke;
+    transition-duration: 0.3s;
+    transition-timing-function: ease;
+  }
+
   /* Subtle hover effects - only on hover-capable devices */
   @media (hover: hover) {
     button:hover, a:hover {

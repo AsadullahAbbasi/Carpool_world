@@ -6,10 +6,13 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Menu, X } from 'lucide-react';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { authApi } from '@/lib/api-client';
 
 const PublicNavbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -19,6 +22,41 @@ const PublicNavbar = () => {
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const checkAuthStatus = async () => {
+      try {
+        const data: any = await authApi.getCurrentUser();
+        if (!cancelled && data?.user) {
+          setIsAuthenticated(true);
+          return;
+        }
+      } catch {
+        // not logged in
+      }
+
+      if (!cancelled) setIsAuthenticated(false);
+    };
+
+    // Check on mount + when tab regains focus (handles back button)
+    checkAuthStatus();
+
+    const handleFocus = () => checkAuthStatus();
+    const handleVisibilityChange = () => {
+      if (!document.hidden) checkAuthStatus();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   return (
@@ -34,12 +72,22 @@ const PublicNavbar = () => {
           {/* Logo - Mobile-first sizing */}
           <Link href="/" className="flex items-center gap-[0.5rem] sm:gap-[0.75rem]">
             <div className="w-[2.5rem] h-[2.5rem] relative flex items-center justify-center sm:w-[2.75rem] sm:h-[2.75rem]">
-              <Image 
-                src="/RideShare_Logo.png" 
-                alt="RideShare Logo" 
+              {/* Light mode */}
+              <Image
+                src="/RideShare_Logo.png"
+                alt="RideShare Logo"
                 width={44}
                 height={44}
-                className="w-full h-full object-contain"
+                className="w-full h-full object-contain dark:hidden"
+                priority
+              />
+              {/* Dark mode */}
+              <Image
+                src="/nightLogo.png"
+                alt="RideShare Logo"
+                width={44}
+                height={44}
+                className="w-full h-full object-contain hidden dark:block"
                 priority
               />
             </div>
@@ -61,16 +109,21 @@ const PublicNavbar = () => {
             >
               Communities
             </Link>
-            <Button
-              variant="ghost"
-              onClick={() => router.push('/auth')}
-              className="hover:bg-foreground/10 hover:text-foreground"
-            >
-              Sign In
-            </Button>
-            <Button onClick={() => router.push('/auth?mode=signup')}>
-              Sign Up
-            </Button>
+            {!isAuthenticated && (
+              <>
+                <Button
+                  variant="ghost"
+                  onClick={() => router.push('/auth')}
+                  className="hover:bg-foreground/10 hover:text-foreground"
+                >
+                  Sign In
+                </Button>
+                <Button onClick={() => router.push('/auth?mode=signup')}>
+                  Sign Up
+                </Button>
+              </>
+            )}
+            <ThemeToggle />
           </div>
 
           {/* Mobile Menu Button - Touch-friendly */}
@@ -105,26 +158,31 @@ const PublicNavbar = () => {
               >
                 Communities
               </Link>
-              <div className="flex flex-col gap-[0.5rem] pt-[0.5rem]">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    router.push('/auth');
-                    setMobileMenuOpen(false);
-                  }}
-                  className="w-full"
-                >
-                  Sign In
-                </Button>
-                <Button
-                  onClick={() => {
-                    router.push('/auth?mode=signup');
-                    setMobileMenuOpen(false);
-                  }}
-                  className="w-full"
-                >
-                  Sign Up
-                </Button>
+              {!isAuthenticated && (
+                <div className="flex flex-col gap-[0.5rem]">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      router.push('/auth');
+                      setMobileMenuOpen(false);
+                    }}
+                    className="w-full"
+                  >
+                    Sign In
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      router.push('/auth?mode=signup');
+                      setMobileMenuOpen(false);
+                    }}
+                    className="w-full"
+                  >
+                    Sign Up
+                  </Button>
+                </div>
+              )}
+              <div className="flex items-center justify-center py-[0.5rem]">
+                <ThemeToggle />
               </div>
             </div>
           </div>
