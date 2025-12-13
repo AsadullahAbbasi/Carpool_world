@@ -6,14 +6,13 @@ import Image from 'next/image';
 import { profileApi } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { LogOut, User as UserIcon, LogIn, Menu } from 'lucide-react';
+import { LogOut, User as UserIcon, LogIn, Menu, X } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Sheet, SheetClose, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import ProfileDialog from './ProfileDialog';
 
@@ -26,6 +25,7 @@ const Navbar = ({ onLogout, isAuthenticated = true }: NavbarProps) => {
   const router = useRouter();
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const [profile, setProfile] = useState<{ full_name: string; avatar_url: string | null } | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -118,29 +118,50 @@ const Navbar = ({ onLogout, isAuthenticated = true }: NavbarProps) => {
                   Sign In
                 </Button>
 
-                {/* Mobile: hamburger menu that contains Sign In */}
-                <Sheet>
-                  <SheetTrigger asChild>
-                    <Button variant="ghost" size="icon" className="sm:hidden">
-                      <Menu className="h-5 w-5" />
-                      <span className="sr-only">Open menu</span>
-                    </Button>
-                  </SheetTrigger>
-                  <SheetContent side="right" className="w-[18rem] p-4">
-                    <div className="mt-10 flex flex-col gap-2">
-                      <SheetClose asChild>
-                        <Button onClick={() => router.push('/auth')} className="w-full">
-                          <LogIn className="w-4 h-4 mr-2" />
-                          Sign In
-                        </Button>
-                      </SheetClose>
-                    </div>
-                  </SheetContent>
-                </Sheet>
+                {/* Mobile: simple dropdown menu (no sidebar) */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="sm:hidden"
+                  onClick={() => setMobileMenuOpen((v) => !v)}
+                  aria-label="Toggle menu"
+                >
+                  {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+                </Button>
               </>
             )}
           </div>
         </div>
+
+        {/* Mobile menu content (logged-out only) */}
+        {!isAuthenticated && mobileMenuOpen && (
+          <div className="sm:hidden border-t border-border">
+            <div className="container mx-auto px-[1rem] py-[0.75rem]">
+              <div className="flex flex-col gap-2">
+                <Button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    router.push('/auth');
+                  }}
+                  className="w-full"
+                >
+                  <LogIn className="w-4 h-4 mr-2" />
+                  Sign In
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    router.push('/auth?mode=signup');
+                  }}
+                  className="w-full"
+                >
+                  Sign Up
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </nav>
 
       {isAuthenticated && (
