@@ -6,13 +6,14 @@ import Image from 'next/image';
 import { profileApi } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { LogOut, User as UserIcon, LogIn } from 'lucide-react';
+import { LogOut, User as UserIcon, LogIn, Menu } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Sheet, SheetClose, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import ProfileDialog from './ProfileDialog';
 
@@ -54,7 +55,7 @@ const Navbar = ({ onLogout, isAuthenticated = true }: NavbarProps) => {
       <nav className="bg-card border-b border-border shadow-soft sticky top-0 z-50 backdrop-blur-sm bg-card/95">
         {/* Mobile-first: responsive padding and sizing */}
         <div className="container mx-auto px-[1rem] py-[0.75rem] flex items-center justify-between sm:px-[1.5rem] sm:py-[1rem]">
-          <div className="flex items-center gap-[0.75rem] sm:gap-[1rem]">
+          <div className="flex min-w-0 items-center gap-[0.75rem] sm:gap-[1rem]">
             <div className="w-[2.5rem] h-[2.5rem] relative flex items-center justify-center sm:w-[2.75rem] sm:h-[2.75rem]">
               {/* Light mode */}
               <Image
@@ -76,12 +77,12 @@ const Navbar = ({ onLogout, isAuthenticated = true }: NavbarProps) => {
               />
             </div>
             {/* Fluid text: scales from 1.25rem to 1.5rem */}
-            <span className="font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent text-[clamp(1.25rem,2.5vw+0.75rem,1.5rem)] leading-none">
+            <span className="text-[15px] min-w-0 truncate font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent  leading-none sm:text-[clamp(1.25rem,2.5vw+0.75rem,1.5rem)]">
               RideShare
             </span>
           </div>
 
-          <div className="flex items-center gap-[1rem]">
+          <div className="flex flex-shrink-0 items-center gap-[0.5rem] sm:gap-[1rem]">
             {isAuthenticated ? (
               <>
                 <DropdownMenu>
@@ -110,11 +111,32 @@ const Navbar = ({ onLogout, isAuthenticated = true }: NavbarProps) => {
               </>
             ) : (
               <>
-                <Button onClick={() => router.push('/auth')}>
+                <ThemeToggle />
+                {/* Desktop: show Sign In button normally */}
+                <Button onClick={() => router.push('/auth')} size="sm" className="hidden sm:inline-flex">
                   <LogIn className="w-4 h-4 mr-2" />
                   Sign In
                 </Button>
-                <ThemeToggle />
+
+                {/* Mobile: hamburger menu that contains Sign In */}
+                <Sheet>
+                  <SheetTrigger asChild>
+                    <Button variant="ghost" size="icon" className="sm:hidden">
+                      <Menu className="h-5 w-5" />
+                      <span className="sr-only">Open menu</span>
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent side="right" className="w-[18rem] p-4">
+                    <div className="mt-10 flex flex-col gap-2">
+                      <SheetClose asChild>
+                        <Button onClick={() => router.push('/auth')} className="w-full">
+                          <LogIn className="w-4 h-4 mr-2" />
+                          Sign In
+                        </Button>
+                      </SheetClose>
+                    </div>
+                  </SheetContent>
+                </Sheet>
               </>
             )}
           </div>
