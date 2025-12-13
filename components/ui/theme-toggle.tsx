@@ -13,7 +13,7 @@ interface ThemeToggleProps {
 }
 
 export function ThemeToggle({ variant = 'ghost', size = 'icon', className }: ThemeToggleProps) {
-  const { theme, setTheme } = useTheme();
+  const { theme, resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
 
   // Avoid hydration mismatch by only rendering after mount
@@ -21,8 +21,10 @@ export function ThemeToggle({ variant = 'ghost', size = 'icon', className }: The
     setMounted(true);
   }, []);
 
+  const currentTheme = (resolvedTheme ?? theme) as 'light' | 'dark' | undefined;
+
   const toggleTheme = () => {
-    setTheme(theme === 'light' ? 'dark' : 'light');
+    setTheme(currentTheme === 'light' ? 'dark' : 'light');
   };
 
   if (!mounted) {
@@ -54,14 +56,14 @@ export function ThemeToggle({ variant = 'ghost', size = 'icon', className }: The
         'focus-visible:ring-0 focus-visible:ring-offset-0',
         className
       )}
-      aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+      aria-label={`Switch to ${currentTheme === 'light' ? 'dark' : 'light'} mode`}
     >
       <div className="relative flex items-center justify-center w-full h-full">
         {/* Sun Icon */}
         <Sun
           className={cn(
             'absolute h-4 w-4 transition-none duration-0',
-            theme === 'light'
+            currentTheme === 'light'
               ? 'rotate-0 scale-100 opacity-100'
               : 'rotate-180 scale-0 opacity-0'
           )}
@@ -71,7 +73,7 @@ export function ThemeToggle({ variant = 'ghost', size = 'icon', className }: The
         <Moon
           className={cn(
             'absolute h-4 w-4 transition-none duration-0',
-            theme === 'dark'
+            currentTheme === 'dark'
               ? 'rotate-0 scale-100 opacity-100'
               : '-rotate-180 scale-0 opacity-0'
           )}

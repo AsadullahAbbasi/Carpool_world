@@ -502,7 +502,7 @@ export default function LandingPage() {
                   <Image
                     src="/nightLogo.png"
                     alt="RideShare Logo"
-                    width={4}
+                    width={32}
                     height={32}
                     className="w-full h-full object-contain hidden dark:block"
                   />
