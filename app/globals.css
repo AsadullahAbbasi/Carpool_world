@@ -10,10 +10,7 @@
 
 
 @layer base {
-
-
-
-  s :root {
+  :root {
     /* Base colors - pure black and white */
     --background: 0 0% 100%;
     --foreground: 0 0% 0%;
