@@ -83,3 +83,4 @@ export function ThemeToggle({ variant = 'ghost', size = 'icon', className }: The
     </Button>
   );
 }
+
