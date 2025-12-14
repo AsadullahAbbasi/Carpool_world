@@ -7,8 +7,13 @@
    All colors MUST be HSL.
 */
 
+
+
 @layer base {
-  :root {
+
+
+
+  s :root {
     /* Base colors - pure black and white */
     --background: 0 0% 100%;
     --foreground: 0 0% 0%;
@@ -46,7 +51,7 @@
     --ring: 0 0% 0%;
 
     --radius: 0.5rem;
-    
+
     /* Subtle shadows in grayscale */
     --shadow-soft: 0 2px 8px -2px rgba(0, 0, 0, 0.08);
     --shadow-medium: 0 4px 16px -4px rgba(0, 0, 0, 0.12);
@@ -94,11 +99,11 @@
     --border: 0 0% 20%;
     --input: 0 0% 20%;
     --ring: 0 0% 100%;
-    
+
     --shadow-soft: 0 2px 8px -2px rgba(0, 0, 0, 0.3);
     --shadow-medium: 0 4px 16px -4px rgba(0, 0, 0, 0.4);
     --shadow-large: 0 8px 24px -8px rgba(0, 0, 0, 0.5);
-    
+
     --sidebar-background: 0 0% 4%;
     --sidebar-foreground: 0 0% 100%;
     --sidebar-primary: 0 0% 100%;
@@ -126,12 +131,18 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     /* Mobile-first: comfortable reading on mobile */
-    font-size: 1rem; /* 16px */
+    font-size: 1rem;
+    /* 16px */
     line-height: 1.6;
   }
 
   /* Typography - Mobile-first with fluid scaling using clamp() */
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     @apply font-semibold tracking-tight;
     line-height: 1.2;
   }
@@ -176,7 +187,11 @@
   }
 
   /* Smooth transitions for interactive elements */
-  button, a, input, select, textarea {
+  button,
+  a,
+  input,
+  select,
+  textarea {
     @apply transition-all duration-200 ease-out;
   }
 
@@ -187,7 +202,9 @@
   }
 
   /* Smooth transitions for all elements on theme change */
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     transition-property: background-color, border-color, color, fill, stroke;
     transition-duration: 0.3s;
     transition-timing-function: ease;
@@ -195,17 +212,25 @@
 
   /* Subtle hover effects - only on hover-capable devices */
   @media (hover: hover) {
-    button:hover, a:hover {
+
+    button:hover,
+    a:hover {
       @apply transition-transform duration-200 ease-out;
     }
   }
 
   /* Touch-friendly interactive elements on mobile */
   @media (max-width: 768px) {
-    button, a[role="button"], [role="tab"], [role="menuitem"] {
+
+    button,
+    a[role="button"],
+    [role="tab"],
+    [role="menuitem"] {
       /* Minimum touch target 44x44px */
-      min-height: 2.75rem; /* 44px */
-      min-width: 2.75rem; /* 44px */
+      min-height: 2.75rem;
+      /* 44px */
+      min-width: 2.75rem;
+      /* 44px */
     }
   }
 }
@@ -215,6 +240,7 @@
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -225,6 +251,7 @@
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -236,6 +263,7 @@
     opacity: 0;
     transform: scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -256,9 +284,12 @@
 
 /* Slower pulse animation for skeleton loaders */
 @keyframes pulse-slow {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.5;
   }

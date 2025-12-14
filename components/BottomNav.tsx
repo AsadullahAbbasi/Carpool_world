@@ -6,13 +6,17 @@ import { Home, Users, PlusCircle, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ProfileDialog from './ProfileDialog';
 import { CreateRideDialog } from './CreateRideDialog';
+import { authApi } from '@/lib/api-client';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 export default function BottomNav() {
     const pathname = usePathname();
     const router = useRouter();
     const [profileDialogOpen, setProfileDialogOpen] = useState(false);
-    const [createRideDialogOpen, setCreateRideDialogOpen] = useState(false);
     const [currentTab, setCurrentTab] = useState<string | null>(null);
+    const [showAuthModal, setShowAuthModal] = useState(false);
+    const [profileCompletionMessage, setProfileCompletionMessage] = useState('');
 
     // Update tab state when URL changes
     useEffect(() => {
@@ -44,8 +48,35 @@ export default function BottomNav() {
         router.push('/dashboard?tab=communities');
     };
 
-    const handlePostClick = () => {
-        setCreateRideDialogOpen(true);
+    const handleProfileClick = async () => {
+        try {
+            const userData: any = await authApi.getCurrentUser();
+            const authed = !!(userData && userData.user);
+            if (!authed) {
+                setShowAuthModal(true);
+                return;
+            }
+
+            const profile = userData.profile;
+            const missingFields: string[] = [];
+            if (!profile?.fullName) missingFields.push('Full Name');
+            if (!profile?.phone) missingFields.push('Phone Number');
+            if (!profile?.gender) missingFields.push('Gender');
+            // Avatar is required for male/other, optional for female
+            if (profile?.gender !== 'female' && !profile?.avatarUrl) missingFields.push('Profile Picture');
+
+            if (missingFields.length > 0) {
+                setProfileCompletionMessage(
+                    `To ensure trust and safety in our community, please complete your profile. Missing: ${missingFields.join(', ')}.`
+                );
+            } else {
+                setProfileCompletionMessage('');
+            }
+
+            setProfileDialogOpen(true);
+        } catch {
+            setShowAuthModal(true);
+        }
     };
 
     const navItems = [
@@ -68,13 +99,13 @@ export default function BottomNav() {
             label: 'Post', 
             highlight: true, 
             type: 'action' as const, 
-            action: handlePostClick
+            action: undefined
         },
         { 
             icon: User, 
             label: 'Profile', 
             type: 'action' as const, 
-            action: () => setProfileDialogOpen(true) 
+            action: handleProfileClick 
         },
     ];
 
@@ -85,7 +116,7 @@ export default function BottomNav() {
                     {navItems.map((item, index) => {
                         const key = `nav-item-${index}`;
 
-                        return (
+                        const buttonEl = (
                             <button
                                 key={key}
                                 onClick={item.action}
@@ -109,17 +140,55 @@ export default function BottomNav() {
                                 <span className="text-[10px] font-medium">{item.label}</span>
                             </button>
                         );
+
+                        // Post uses CreateRideDialog's built-in auth/profile gating flow.
+                        if (item.label === 'Post') {
+                            return (
+                                <CreateRideDialog key={key}>
+                                    {buttonEl}
+                                </CreateRideDialog>
+                            );
+                        }
+
+                        return buttonEl;
                     })}
                 </div>
             </div>
-            <ProfileDialog open={profileDialogOpen} onOpenChange={setProfileDialogOpen} />
-            <CreateRideDialog 
-                open={createRideDialogOpen} 
-                onOpenChange={setCreateRideDialogOpen}
-                onRideCreated={() => {
-                    setCreateRideDialogOpen(false);
-                }}
+            <ProfileDialog
+                open={profileDialogOpen}
+                onOpenChange={setProfileDialogOpen}
+                completionMessage={profileCompletionMessage}
             />
+
+            {/* Auth Modal - shown when unauthenticated user taps Profile */}
+            <Dialog open={showAuthModal} onOpenChange={setShowAuthModal}>
+                <DialogContent className="animate-scale-in">
+                    <DialogHeader>
+                        <DialogTitle>Sign In Required</DialogTitle>
+                        <DialogDescription>
+                            You need to sign in to view or edit your profile. Create an account or sign in to continue.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-3 pt-4">
+                        <Button
+                            onClick={() => {
+                                router.push('/auth');
+                                setShowAuthModal(false);
+                            }}
+                            className="w-full"
+                        >
+                            Sign In / Sign Up
+                        </Button>
+                        <Button
+                            variant="outline"
+                            onClick={() => setShowAuthModal(false)}
+                            className="w-full"
+                        >
+                            Cancel
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </>
     );
 }

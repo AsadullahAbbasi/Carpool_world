@@ -155,7 +155,7 @@ function DashboardContent({
 
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    
+
     return () => {
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -395,7 +395,7 @@ function DashboardContent({
                     <SelectTrigger className="flex-1 sm:w-[160px]">
                       <SelectValue placeholder="Filter" />
                     </SelectTrigger>
-                    <SelectContent position="popper" side="bottom" align="start" sideOffset={4}>
+                    <SelectContent className='!overflow-y-auto !max-h-[15rem]' position="popper" side="bottom" align="start" sideOffset={4}>
                       <SelectItem value="all">All Rides</SelectItem>
                       <SelectItem value="verified">Verified Only</SelectItem>
                       <SelectItem value="offering">Offering Rides</SelectItem>

@@ -326,6 +326,22 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
       e.stopPropagation();
     }
 
+    // Ensure we have a fresh auth state before proceeding.
+    // This prevents the dialog from opening (or doing nothing) while auth is still "unknown" (null).
+    try {
+      const data: any = await authApi.getCurrentUser();
+      const authed = !!(data && data.user);
+      setIsAuthenticated(authed);
+      if (!authed) {
+        setShowAuthModal(true);
+        return;
+      }
+    } catch {
+      setIsAuthenticated(false);
+      setShowAuthModal(true);
+      return;
+    }
+
     // If editing, just open
     if (rideToEdit) {
       setOpen(true);
