@@ -123,7 +123,7 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
 
     return {
       type: 'offering',
-      gender_preference: 'girls_only',
+      gender_preference: 'both',
       start_location: '',
       end_location: '',
       ride_date: date,
@@ -222,7 +222,7 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
 
       const editFormData = {
         type: rideToEdit.type,
-        gender_preference: rideToEdit.gender_preference || 'girls_only',
+        gender_preference: rideToEdit.gender_preference || 'both',
         start_location: rideToEdit.start_location,
         end_location: rideToEdit.end_location,
         ride_date: date, // Auto-update to current date
@@ -274,8 +274,22 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
     const endLocationCheck = validateRequired(formData.end_location, 'End location');
     if (!endLocationCheck.valid) newErrors.end_location = endLocationCheck.error || '';
 
-    // Phone is now mandatory
-    const phoneCheck = validatePhone(formData.phone, true);
+    // Validate ride date
+    const dateCheck = validateFutureDate(formData.ride_date);
+    if (!dateCheck.valid) newErrors.ride_date = dateCheck.error || '';
+
+    // Validate ride time - convert to 24-hour format first to check format
+    if (formData.ride_time) {
+      const rideTime24 = convert12To24(formData.ride_time);
+      const timeCheck = validateTime(rideTime24);
+      if (!timeCheck.valid) newErrors.ride_time = timeCheck.error || '';
+    } else {
+      newErrors.ride_time = 'Time is required';
+    }
+
+    // Phone is now mandatory - use the actual displayed value (formData.phone || userPhoneFromProfile)
+    const phoneValue = formData.phone || userPhoneFromProfile;
+    const phoneCheck = validatePhone(phoneValue, true);
     if (!phoneCheck.valid) newErrors.phone = phoneCheck.error || '';
 
     setErrors(newErrors);
@@ -400,12 +414,13 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
     setErrors({});
 
     try {
-      // Always use current date and time
+      // Always use current date and time as fallback
       const { date, time } = getCurrentDateTime();
       // When editing, always use current date; otherwise use form data or current date
       const rideDate = rideToEdit ? date : (formData.ride_date || date);
-      // Use current time directly (already in 24-hour format from getCurrentDateTime)
-      const rideTime24 = time;
+      // Convert user's selected time from 12-hour format to 24-hour format
+      // If formData.ride_time exists, convert it; otherwise use current time
+      const rideTime24 = formData.ride_time ? convert12To24(formData.ride_time) : time;
 
       // Calculate expiration (using local timezone-aware parsing)
       let expiresAt: Date;
@@ -449,6 +464,8 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
       }
 
       // Validate with Zod schema (using 24-hour format for rideTime)
+      // Use the actual phone value (formData.phone || userPhoneFromProfile) to match what's displayed and validated
+      const phoneValue = formData.phone || userPhoneFromProfile;
       const validatedData = rideSchema.parse({
         type: formData.type as 'offering' | 'seeking',
         genderPreference: formData.gender_preference as 'girls_only' | 'boys_only' | 'both',
@@ -456,9 +473,9 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
         endLocation: formData.end_location,
         rideDate: rideDate,
         rideTime: rideTime24, // Use 24-hour format for API
-        seatsAvailable: formData.seats_available ? parseInt(formData.seats_available) : undefined,
+        seatsAvailable: formData.seats_available && formData.seats_available.trim() ? parseInt(formData.seats_available) : undefined,
         description: formData.description || undefined,
-        phone: formData.phone || undefined,
+        phone: phoneValue || undefined,
         communityIds: formData.community_ids.length > 0 ? formData.community_ids : undefined,
         recurringDays: formData.recurring_days.length > 0 ? formData.recurring_days : undefined,
       });
@@ -578,7 +595,7 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
         const time12 = convert24To12(time);
         const resetData = {
           type: 'offering',
-          gender_preference: 'girls_only',
+          gender_preference: 'both',
           start_location: '',
           end_location: '',
           ride_date: date,
@@ -597,10 +614,33 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
       }
     } catch (error: any) {
       // Handle Zod validation errors
-      if (error.name === 'ZodError' || error.errors) {
-        const firstError = error.errors?.[0];
-        const errorMessage = firstError
-          ? `${firstError.path.join('.')}: ${firstError.message}`
+      if (error.name === 'ZodError' || error.errors || error.issues) {
+        const zodErrors = error.issues || error.errors || [];
+        const fieldErrors: Record<string, string> = {};
+        let errorMessages: string[] = [];
+
+        // Map Zod errors to form field errors
+        zodErrors.forEach((err: any) => {
+          const fieldName = err.path?.join('.') || '';
+          const errorMsg = err.message || '';
+          
+          // Map schema field names to form field names
+          if (fieldName === 'startLocation') fieldErrors.start_location = errorMsg;
+          else if (fieldName === 'endLocation') fieldErrors.end_location = errorMsg;
+          else if (fieldName === 'rideDate') fieldErrors.ride_date = errorMsg;
+          else if (fieldName === 'rideTime') fieldErrors.ride_time = errorMsg;
+          else if (fieldName === 'phone') fieldErrors.phone = errorMsg;
+          else if (fieldName === 'genderPreference') fieldErrors.gender_preference = errorMsg;
+          else if (fieldName === 'seatsAvailable') fieldErrors.seats_available = errorMsg;
+          else if (fieldName === 'description') fieldErrors.description = errorMsg;
+          
+          errorMessages.push(`${fieldName}: ${errorMsg}`);
+        });
+
+        setErrors(fieldErrors);
+
+        const errorMessage = errorMessages.length > 0
+          ? errorMessages[0] // Show first error in toast
           : 'Please check your input and try again';
 
         toast({
@@ -790,6 +830,7 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
                 value={formData.ride_date}
                 onChange={(e) => {
                   setFormData({ ...formData, ride_date: e.target.value });
+                  if (errors.ride_date) setErrors({ ...errors, ride_date: '' });
                   // Clear time error if date changes to future date
                   if (errors.ride_time) {
                     const selectedDate = new Date(e.target.value);
@@ -821,7 +862,11 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
                 }}
                 min={new Date().toISOString().split('T')[0]}
                 required
+                className={errors.ride_date ? 'border-destructive' : ''}
               />
+              {errors.ride_date && (
+                <p className="text-base text-destructive leading-relaxed sm:text-sm sm:leading-normal">{errors.ride_date}</p>
+              )}
             </div>
 
             {/* Optional Expiry Date and Time (24-hour format) */}

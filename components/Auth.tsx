@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Image from 'next/image';
 import { authApi } from '@/lib/api-client';
 import { sendVerificationEmail, sendPasswordResetEmail } from '@/lib/email-client';
 import { Button } from '@/components/ui/button';
@@ -9,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Car, Users, Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { validateEmail, validatePassword } from '@/lib/validation';
 
 const Auth = () => {
@@ -219,8 +220,25 @@ const Auth = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10 p-4">
       <Card className="w-full max-w-md shadow-medium">
         <CardHeader className="text-center space-y-3">
-          <div className="mx-auto w-16 h-16 bg-gradient-to-br from-primary to-primary/80 rounded-2xl flex items-center justify-center mb-2">
-            <Car className="w-8 h-8 text-primary-foreground" />
+          <div className="mx-auto w-16 h-16 relative flex items-center justify-center mb-2">
+            {/* Light mode */}
+            <Image
+              src="/RideShare_Logo.png"
+              alt="RideShare Logo"
+              width={64}
+              height={64}
+              className="w-full h-full object-contain dark:hidden"
+              priority
+            />
+            {/* Dark mode */}
+            <Image
+              src="/nightLogo.png"
+              alt="RideShare Logo"
+              width={64}
+              height={64}
+              className="w-full h-full object-contain hidden dark:block"
+              priority
+            />
           </div>
           <CardTitle className="text-3xl font-bold">RideShare</CardTitle>
           <CardDescription className="flex items-center justify-center gap-2">
