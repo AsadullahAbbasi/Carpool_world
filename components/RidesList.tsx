@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ridesApi, authApi, reviewsApi } from '@/lib/api-client';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -310,6 +310,275 @@ const RidesList = ({
       window.removeEventListener('rideCreated', handleRideCreatedEvent as EventListener);
     };
   }, []);
+
+  // Store current filter values in refs to avoid stale closures in SSE handler
+  const filterRefs = useRef({ filterType, sortBy, selectedCommunity, searchQuery });
+  
+  // Update refs when filters change
+  useEffect(() => {
+    filterRefs.current = { filterType, sortBy, selectedCommunity, searchQuery };
+  }, [filterType, sortBy, selectedCommunity, searchQuery]);
+
+  // Real-time updates via Server-Sent Events (SSE)
+  useEffect(() => {
+    // Only connect to SSE for "All Rides" tab, not "My Rides"
+    if (showOnlyMyRides) {
+      return;
+    }
+
+    let eventSource: EventSource | null = null;
+    let reconnectTimeout: NodeJS.Timeout | null = null;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
+    const reconnectDelay = 3000; // 3 seconds
+
+    const connect = () => {
+      try {
+        // Close existing connection if any
+        if (eventSource) {
+          eventSource.close();
+        }
+
+        eventSource = new EventSource('/api/rides/stream');
+
+        eventSource.onopen = () => {
+          reconnectAttempts = 0; // Reset on successful connection
+        };
+
+        eventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+
+            // Handle connection confirmation
+            if (data.type === 'connected') {
+              console.log('Connected to real-time ride updates');
+              return;
+            }
+
+            // Handle errors
+            if (data.type === 'error') {
+              console.error('SSE error:', data.message);
+              return;
+            }
+
+            // Handle ride changes
+            if (data.operation) {
+              const { operation } = data;
+
+              // Handle delete operations
+              if (operation === 'delete' && data.rideId) {
+                const rideId = data.rideId;
+                // Remove from all rides
+                setAllRides((prev) => prev.filter((r) => r.id !== rideId));
+                // Remove from filtered rides
+                setRides((prev) => prev.filter((r) => r.id !== rideId));
+                return;
+              }
+
+              // Handle insert and update operations (require ride data)
+              if (data.ride) {
+                const { ride } = data;
+
+              if (operation === 'insert') {
+                // Add new ride to the top of the list
+                setAllRides((prev) => {
+                  // Check if ride already exists (avoid duplicates)
+                  const exists = prev.some((r) => r.id === ride.id);
+                  if (exists) return prev;
+
+                  // Filter out expired/archived rides if needed (for consistency)
+                  const now = new Date();
+                  const isExpired = ride.expires_at && new Date(ride.expires_at) <= now;
+                  if (ride.is_archived || isExpired) {
+                    // Still add it, but client can filter if needed
+                  }
+
+                  // Add to top
+                  return [ride, ...prev];
+                });
+
+                // Update filtered rides list
+                setRides((prev) => {
+                  const exists = prev.some((r) => r.id === ride.id);
+                  if (exists) return prev;
+
+                  // Apply current filters (use refs to get latest values)
+                  const currentFilters = filterRefs.current;
+                  let shouldInclude = true;
+
+                  // Apply verification filter
+                  if (currentFilters.filterType === 'verified' && !ride.profiles?.nic_verified) {
+                    shouldInclude = false;
+                  }
+
+                  // Apply gender preference filter
+                  if (currentFilters.filterType === 'girls_only' || currentFilters.filterType === 'boys_only' || currentFilters.filterType === 'both') {
+                    if (ride.gender_preference !== currentFilters.filterType) {
+                      shouldInclude = false;
+                    }
+                  }
+
+                  // Apply type filter
+                  if (currentFilters.filterType === 'offering' || currentFilters.filterType === 'seeking') {
+                    if (ride.type !== currentFilters.filterType) {
+                      shouldInclude = false;
+                    }
+                  }
+
+                  // Apply community filter
+                  if (currentFilters.selectedCommunity) {
+                    if (!ride.community_ids || !ride.community_ids.includes(currentFilters.selectedCommunity)) {
+                      shouldInclude = false;
+                    }
+                  }
+
+                  // Apply search filter
+                  if (currentFilters.searchQuery) {
+                    const lowerQuery = currentFilters.searchQuery.toLowerCase();
+                    const matchesSearch =
+                      (ride.start_location || '').toLowerCase().includes(lowerQuery) ||
+                      (ride.end_location || '').toLowerCase().includes(lowerQuery) ||
+                      (ride.description || '').toLowerCase().includes(lowerQuery);
+                    if (!matchesSearch) {
+                      shouldInclude = false;
+                    }
+                  }
+
+                  if (!shouldInclude) return prev;
+
+                  // Add to top and apply sort
+                  const newRides = [ride, ...prev];
+                  return applySortToRides(newRides, currentFilters.sortBy);
+                });
+              } else if (operation === 'update') {
+                // Replace existing ride
+                setAllRides((prev) => {
+                  const index = prev.findIndex((r) => r.id === ride.id);
+                  if (index === -1) {
+                    // Ride not in list, add it to top
+                    return [ride, ...prev];
+                  }
+                  // Replace existing ride
+                  const updated = [...prev];
+                  updated[index] = ride;
+                  return updated;
+                });
+
+                // Update filtered rides list
+                setRides((prev) => {
+                  const index = prev.findIndex((r) => r.id === ride.id);
+                  
+                  // Check if ride should be included with current filters (use refs to get latest values)
+                  const currentFilters = filterRefs.current;
+                  let shouldInclude = true;
+
+                  // Apply verification filter
+                  if (currentFilters.filterType === 'verified' && !ride.profiles?.nic_verified) {
+                    shouldInclude = false;
+                  }
+
+                  // Apply gender preference filter
+                  if (currentFilters.filterType === 'girls_only' || currentFilters.filterType === 'boys_only' || currentFilters.filterType === 'both') {
+                    if (ride.gender_preference !== currentFilters.filterType) {
+                      shouldInclude = false;
+                    }
+                  }
+
+                  // Apply type filter
+                  if (currentFilters.filterType === 'offering' || currentFilters.filterType === 'seeking') {
+                    if (ride.type !== currentFilters.filterType) {
+                      shouldInclude = false;
+                    }
+                  }
+
+                  // Apply community filter
+                  if (currentFilters.selectedCommunity) {
+                    if (!ride.community_ids || !ride.community_ids.includes(currentFilters.selectedCommunity)) {
+                      shouldInclude = false;
+                    }
+                  }
+
+                  // Apply search filter
+                  if (currentFilters.searchQuery) {
+                    const lowerQuery = currentFilters.searchQuery.toLowerCase();
+                    const matchesSearch =
+                      (ride.start_location || '').toLowerCase().includes(lowerQuery) ||
+                      (ride.end_location || '').toLowerCase().includes(lowerQuery) ||
+                      (ride.description || '').toLowerCase().includes(lowerQuery);
+                    if (!matchesSearch) {
+                      shouldInclude = false;
+                    }
+                  }
+
+                  if (index === -1) {
+                    // Ride not in filtered list
+                    if (shouldInclude) {
+                      // Add it if it should be included
+                      const newRides = [ride, ...prev];
+                      return applySortToRides(newRides, currentFilters.sortBy);
+                    }
+                    return prev;
+                  }
+
+                  if (!shouldInclude) {
+                    // Remove from filtered list if it no longer matches filters
+                    return prev.filter((r) => r.id !== ride.id);
+                  }
+
+                  // Update existing ride
+                  const updated = [...prev];
+                  updated[index] = ride;
+                  return applySortToRides(updated, currentFilters.sortBy);
+                });
+              }
+              }
+            }
+          } catch (error) {
+            console.error('Error parsing SSE message:', error);
+          }
+        };
+
+        eventSource.onerror = (error) => {
+          console.error('SSE connection error:', error);
+          
+          // Close the connection
+          if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+          }
+
+          // Attempt to reconnect
+          if (reconnectAttempts < maxReconnectAttempts) {
+            reconnectAttempts++;
+            reconnectTimeout = setTimeout(() => {
+              connect();
+            }, reconnectDelay);
+          } else {
+            console.error('Max reconnection attempts reached. SSE connection closed.');
+          }
+        };
+      } catch (error) {
+        console.error('Error setting up SSE connection:', error);
+      }
+    };
+
+    // Connect when component mounts or when dependencies change
+    connect();
+
+    // Cleanup on unmount or when showOnlyMyRides changes
+    return () => {
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+    };
+    // Only reconnect when showOnlyMyRides changes (switching between All Rides and My Rides)
+    // Filters are applied client-side, so no need to reconnect
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showOnlyMyRides]);
 
   const handleDelete = async (rideId: string) => {
     // Optimistic update - remove immediately
