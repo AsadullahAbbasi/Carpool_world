@@ -114,12 +114,12 @@ export default function LandingPage() {
   }, [router]);
 
   if (checkingAuth) {
-    return <div className="min-h-screen bg-background" />;
+    return <div className="min-h-screen" />;
   }
 
   return (
     <div
-      className="min-h-screen bg-background bg-[url('/mainbggrid.svg')] dark:bg-[url('/darkgrid.jpg')] bg-cover bg-center bg-no-repeat bg-fixed"
+      className="min-h-screen"
     >
       <PublicNavbar />
 
@@ -162,7 +162,7 @@ export default function LandingPage() {
         <div className="container mx-auto max-w-6xl">
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold mb-4">Featured Rides</h2>
-            <p className="text-muted-foreground text-lg">
+            <p className="text-muted-foreground text-lg mx-auto">
               Recent rides from our community
             </p>
           </div>
@@ -235,7 +235,7 @@ export default function LandingPage() {
         <div className="container mx-auto max-w-6xl">
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold mb-4">Communities</h2>
-            <p className="text-muted-foreground text-lg">
+            <p className="text-muted-foreground text-lg mx-auto">
               Join communities and connect with people in your area
             </p>
           </div>
@@ -269,11 +269,11 @@ export default function LandingPage() {
       </section>
 
       {/* Student Perks Section */}
-      <section className="py-20 md:px-4 bg-primary/5">
+      <section className="py-20 md:px-4 ">
         <div className="container mx-auto max-w-6xl">
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold mb-4">Student Exclusive Perks</h2>
-            <p className="text-muted-foreground text-lg">
+            <p className="text-muted-foreground text-lg mx-auto">
               Designed specifically for university students
             </p>
           </div>
@@ -322,7 +322,7 @@ export default function LandingPage() {
         <div className="container mx-auto max-w-6xl">
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold mb-4">Why Choose Us</h2>
-            <p className="text-muted-foreground text-lg">
+            <p className="text-muted-foreground text-lg mx-auto">
               Everything you need to share rides safely and efficiently
             </p>
           </div>
@@ -402,7 +402,7 @@ export default function LandingPage() {
         <div className="container mx-auto max-w-6xl">
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold mb-4">What People Say</h2>
-            <p className="text-muted-foreground text-lg">
+            <p className="text-muted-foreground text-lg mx-auto">
               Trusted by thousands of users across Pakistan
             </p>
           </div>
@@ -547,7 +547,7 @@ export default function LandingPage() {
           </div>
 
           {/* Copyright */}
-          <div className="mt-8 pt-8 border-t border-border flex justify-center items-center">
+          <div className="mt-8 pt-8  flex justify-center items-center">
             <p className="text-sm text-muted-foreground text-center">
               &copy; {new Date().getFullYear()} RideShare. All rights reserved.
             </p>

@@ -76,31 +76,34 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <Providers>
-          {children}
-          <BottomNav />
-          <InstallPrompt />
-          <Toaster />
-          <Sonner />
-        </Providers>
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              '@context': 'https://schema.org',
-              '@type': 'Organization',
-              name: 'RideSharee',
-              url: 'https://ridesharee.com',
-              logo: 'https://ridesharee.com/RideShare_Logo.png',
-              description: 'Affordable and safe ridesharing for university students in Pakistan.',
-              sameAs: [
-                'https://facebook.com/ridesharee',
-                'https://twitter.com/ridesharee',
-                'https://instagram.com/ridesharee',
-              ],
-            }),
-          }}
-        />
+        <div className="grid-background" aria-hidden="true" />
+        <div className="content-layer">
+          <Providers>
+            {children}
+            <BottomNav />
+            <InstallPrompt />
+            <Toaster />
+            <Sonner />
+          </Providers>
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                '@context': 'https://schema.org',
+                '@type': 'Organization',
+                name: 'RideSharee',
+                url: 'https://ridesharee.com',
+                logo: 'https://ridesharee.com/RideShare_Logo.png',
+                description: 'Affordable and safe ridesharing for university students in Pakistan.',
+                sameAs: [
+                  'https://facebook.com/ridesharee',
+                  'https://twitter.com/ridesharee',
+                  'https://instagram.com/ridesharee',
+                ],
+              }),
+            }}
+          />
+        </div>
       </body>
     </html>
   );
