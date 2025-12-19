@@ -321,13 +321,13 @@
   /* Grid Pattern - Light Mode */
   background-image:
     repeating-linear-gradient(to right,
-      rgba(0, 0, 0, 0.09) 0px,
-      rgba(0, 0, 0, 0.09) 1px,
+      rgba(0, 0, 0, 0.06) 0px,
+      rgba(0, 0, 0, 0.06) 1px,
       transparent 1px,
       transparent 24px),
     repeating-linear-gradient(to bottom,
-      rgba(0, 0, 0, 0.09) 0px,
-      rgba(0, 0, 0, 0.09) 1px,
+      rgba(0, 0, 0, 0.06) 0px,
+      rgba(0, 0, 0, 0.06) 1px,
       transparent 1px,
       transparent 24px);
 }
@@ -339,13 +339,13 @@
   /* Grid Pattern - Dark Mode */
   background-image:
     repeating-linear-gradient(to right,
-      rgba(255, 255, 255, 0.09) 0px,
-      rgba(255, 255, 255, 0.09) 1px,
+      rgba(255, 255, 255, 0.06) 0px,
+      rgba(255, 255, 255, 0.06) 1px,
       transparent 1px,
       transparent 24px),
     repeating-linear-gradient(to bottom,
-      rgba(255, 255, 255, 0.09) 0px,
-      rgba(255, 255, 255, 0.09) 1px,
+      rgba(255, 255, 255, 0.06) 0px,
+      rgba(255, 255, 255, 0.06) 1px,
       transparent 1px,
       transparent 24px);
 }
