@@ -118,7 +118,9 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div
+      className="min-h-screen bg-background bg-[url('/mainbggrid.svg')] dark:bg-[url('/darkgrid.jpg')] bg-cover bg-center bg-no-repeat bg-fixed"
+    >
       <PublicNavbar />
 
       {/* Hero Section */}
@@ -145,7 +147,7 @@ export default function LandingPage() {
               <Button
                 size="lg"
                 variant="outline"
-                className="text-lg w-full  md:px-8 py-3"
+                className="text-lg w-full md:px-8 py-3 border-foreground/20"
                 onClick={() => router.push('/dashboard?tab=rides')}
               >
                 Browse Rides
@@ -228,8 +230,8 @@ export default function LandingPage() {
 
 
 
-        {/* Communities Preview */}
-        <section className="py-20 md:px-4">
+      {/* Communities Preview */}
+      <section className="py-20 md:px-4">
         <div className="container mx-auto max-w-6xl">
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold mb-4">Communities</h2>
@@ -313,7 +315,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-    
+
 
       {/* Features Section */}
       <section className="py-20 md:px-4 bg-muted/30">
@@ -545,8 +547,8 @@ export default function LandingPage() {
           </div>
 
           {/* Copyright */}
-          <div className="mt-8 pt-8 border-t border-border">
-            <p className="text-center text-sm text-muted-foreground w-full">
+          <div className="mt-8 pt-8 border-t border-border flex justify-center items-center">
+            <p className="text-sm text-muted-foreground text-center">
               &copy; {new Date().getFullYear()} RideShare. All rights reserved.
             </p>
           </div>

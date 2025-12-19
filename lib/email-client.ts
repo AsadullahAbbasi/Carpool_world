@@ -36,7 +36,7 @@ export async function sendVerificationEmail(email: string, token: string): Promi
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-  const appName = process.env.NEXT_PUBLIC_APP_NAME || 'Carpool App';
+  const appName = process.env.NEXT_PUBLIC_APP_NAME || 'RideSharee';
   const verificationUrl = `${appUrl}/auth/verify-email?token=${token}`;
 
   try {
@@ -83,7 +83,7 @@ export async function sendPasswordResetEmail(email: string, token: string): Prom
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-  const appName = process.env.NEXT_PUBLIC_APP_NAME || 'Carpool App';
+  const appName = process.env.NEXT_PUBLIC_APP_NAME || 'RideSharee';
   const resetUrl = `${appUrl}/auth/reset-password?token=${token}`;
 
   try {

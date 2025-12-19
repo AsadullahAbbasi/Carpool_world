@@ -68,7 +68,7 @@ const PublicNavbar = () => {
 
   return (
     <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 backdrop-blur-xl backdrop-saturate-150 bg-background/60 ${scrolled ? 'border-b border-border shadow-soft bg-background/90' : ''
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 backdrop-blur-xl backdrop-saturate-150 bg-background/60 dark:bg-muted/50 ${scrolled ? 'border-b border-border shadow-soft bg-background/90 dark:bg-muted/90' : ''
         }`}
     >
       {/* Mobile-first: responsive padding */}

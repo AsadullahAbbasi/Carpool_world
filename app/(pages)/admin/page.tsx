@@ -727,7 +727,7 @@ export default function AdminPage() {
                   <li>Duplicate or similar community name already exists</li>
                   <li>Inappropriate, offensive, or spam content</li>
                   <li>Vague or unclear purpose (description doesn't explain why it's needed)</li>
-                  <li>Not related to carpooling/ridesharing purpose</li>
+                  <li>Not related to ridesharing purpose</li>
                   <li>Violates platform terms or community guidelines</li>
                   <li>Request appears to be for personal/commercial use unrelated to ridesharing</li>
                 </ul>
@@ -741,7 +741,7 @@ export default function AdminPage() {
                   id="rejectionReason"
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}
-                  placeholder="Explain why this request is being rejected (e.g., 'Duplicate community name', 'Description too vague', 'Not related to carpooling')"
+                  placeholder="Explain why this request is being rejected (e.g., 'Duplicate community name', 'Description too vague', 'Not related to ridesharing')"
                   rows={3}
                   required
                 />

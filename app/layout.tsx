@@ -19,18 +19,27 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: 'RideShare - Carpool App',
-    template: '%s | RideShare',
+    default: 'RideSharee - Rideshare App',
+    template: '%s | RideSharee',
   },
-  description: 'Affordable and safe carpooling for university students in Pakistan. Connect, share, and travel together.',
-  keywords: ['carpool', 'ride share', 'university rides', 'cheap rides', 'student transport', 'Pakistan'],
-  authors: [{ name: 'RideShare Team' }],
-  creator: 'RideShare',
+  description: 'Affordable and safe ridesharing for university students in Pakistan. Connect, share, and travel together.',
+  keywords: ['ridesharee', 'ride share', 'university rides', 'cheap rides', 'student transport', 'Pakistan'],
+  authors: [{ name: 'RideSharee Team' }],
+  creator: 'RideSharee',
   manifest: '/manifest.json',
+  icons: {
+    icon: [
+      { url: '/RideShare_Logo.png', type: 'image/png' },
+    ],
+    shortcut: '/RideShare_Logo.png',
+    apple: [
+      { url: '/RideShare_Logo.png', sizes: '180x180', type: 'image/png' },
+    ],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'RideShare',
+    title: 'RideSharee',
   },
   formatDetection: {
     telephone: false,
@@ -38,10 +47,24 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    url: 'https://rideshare.com',
-    title: 'RideShare - Carpool App',
-    description: 'Affordable and safe carpooling for university students in Pakistan.',
-    siteName: 'RideShare',
+    url: 'https://ridesharee.com',
+    title: 'RideSharee - Rideshare App',
+    description: 'Affordable and safe ridesharing for university students in Pakistan.',
+    siteName: 'RideSharee',
+    images: [
+      {
+        url: '/RideShare_Logo.png',
+        width: 1200,
+        height: 630,
+        alt: 'RideSharee Logo',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'RideSharee - Rideshare App',
+    description: 'Affordable and safe ridesharing for university students in Pakistan.',
+    images: ['/RideShare_Logo.png'],
   },
 };
 
@@ -66,14 +89,14 @@ export default function RootLayout({
             __html: JSON.stringify({
               '@context': 'https://schema.org',
               '@type': 'Organization',
-              name: 'RideShare',
-              url: 'https://rideshare.com',
-              logo: 'https://rideshare.com/icon-512x512.png',
-              description: 'Affordable and safe carpooling for university students in Pakistan.',
+              name: 'RideSharee',
+              url: 'https://ridesharee.com',
+              logo: 'https://ridesharee.com/RideShare_Logo.png',
+              description: 'Affordable and safe ridesharing for university students in Pakistan.',
               sameAs: [
-                'https://facebook.com/rideshare',
-                'https://twitter.com/rideshare',
-                'https://instagram.com/rideshare',
+                'https://facebook.com/ridesharee',
+                'https://twitter.com/ridesharee',
+                'https://instagram.com/ridesharee',
               ],
             }),
           }}
