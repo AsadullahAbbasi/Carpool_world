@@ -55,7 +55,16 @@ const Navbar = ({ onLogout, isAuthenticated = true }: NavbarProps) => {
       <nav className="bg-card border-b border-border shadow-soft sticky top-0 z-50 backdrop-blur-sm bg-card/95">
         {/* Mobile-first: responsive padding and sizing */}
         <div className="container mx-auto px-[1rem] py-[0.75rem] flex items-center justify-between sm:px-[1.5rem] sm:py-[1rem]">
-          <div className="flex min-w-0 items-center gap-[0.75rem] sm:gap-[1rem]">
+          <div
+            onClick={() => {
+              if (isAuthenticated) {
+                router.push('/dashboard?tab=rides');
+              } else {
+                router.push('/');
+              }
+            }}
+            className="flex min-w-0 items-center gap-[0.75rem] sm:gap-[1rem] cursor-pointer"
+          >
             <div className="w-[2.5rem] h-[2.5rem] relative flex items-center justify-center sm:w-[2.75rem] sm:h-[2.75rem]">
               {/* Light mode */}
               <Image

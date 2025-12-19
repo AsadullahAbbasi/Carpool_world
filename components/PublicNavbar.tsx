@@ -75,7 +75,17 @@ const PublicNavbar = () => {
       <div className="container mx-auto px-[1rem] py-[0.75rem] sm:px-[1.5rem] sm:py-[1rem]">
         <div className="flex items-center justify-between">
           {/* Logo - Mobile-first sizing */}
-          <Link href="/" className="flex items-center gap-[0.5rem] sm:gap-[0.75rem]">
+          {/* Logo - Mobile-first sizing */}
+          <div
+            onClick={() => {
+              if (isAuthenticated) {
+                router.push('/dashboard?tab=rides');
+              } else {
+                router.push('/');
+              }
+            }}
+            className="flex items-center gap-[0.5rem] sm:gap-[0.75rem] cursor-pointer"
+          >
             <div className="w-[2.5rem] h-[2.5rem] relative flex items-center justify-center sm:w-[2.75rem] sm:h-[2.75rem]">
               {/* Light mode */}
               <Image
@@ -98,7 +108,7 @@ const PublicNavbar = () => {
             </div>
             {/* Fluid text scaling */}
             <span className="font-bold text-[clamp(1.125rem,2vw+0.625rem,1.25rem)] leading-none">RideShare</span>
-          </Link>
+          </div>
 
           {/* Desktop links + actions (right) */}
           <div className="hidden md:flex items-center gap-[1.5rem]">

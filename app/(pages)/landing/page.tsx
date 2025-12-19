@@ -158,7 +158,7 @@ export default function LandingPage() {
       </section>
 
       {/* Featured Rides Section */}
-      <section className="py-20 md:px-4 bg-muted/30">
+      <section className="py-20 md:px-4 ">
         <div className="container mx-auto max-w-6xl">
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold mb-4">Featured Rides</h2>
@@ -318,7 +318,7 @@ export default function LandingPage() {
 
 
       {/* Features Section */}
-      <section className="py-20 md:px-4 bg-muted/30">
+      <section className="py-20 md:px-4 ">
         <div className="container mx-auto max-w-6xl">
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold mb-4">Why Choose Us</h2>
@@ -396,6 +396,7 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
 
       {/* Testimonials */}
       <section className="py-20 md:px-4">
