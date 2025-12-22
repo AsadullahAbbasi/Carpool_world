@@ -221,7 +221,7 @@ export async function POST(req: NextRequest) {
         if (user && user.email && profile.nicNumber) {
           await sendNICApprovalEmail(
             user.email,
-            profile.fullName || user.name || 'User',
+            profile.fullName || 'User',
             profile.nicNumber
           );
         }
@@ -236,7 +236,7 @@ export async function POST(req: NextRequest) {
         if (user && user.email && profile.nicRejectionReason) {
           await sendNICRejectionEmail(
             user.email,
-            profile.fullName || user.name || 'User',
+            profile.fullName || 'User',
             profile.nicRejectionReason
           );
         }
