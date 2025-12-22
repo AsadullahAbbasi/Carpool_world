@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     // Verify auth token
     const token = req.nextUrl.searchParams.get('token');
     const secretToken = process.env.CRON_SECRET || 'your-secret-token';
-    
+
     if (token !== secretToken) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
     // Connect to MongoDB
     const mongoose = await connectDB();
     const db = mongoose.connection.db;
-    
+
     if (!db) {
       throw new Error('Database connection not available');
     }
@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
         // Send email
         await sendRideExpirationEmail(
           user.email,
-          profile?.fullName || user.name || 'User',
+          profile?.fullName || 'User',
           {
             startLocation: ride.startLocation,
             endLocation: ride.endLocation,
