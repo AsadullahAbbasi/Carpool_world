@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
   try {
     // Verify this is coming from Vercel Cron
     const authHeader = req.headers.get('authorization');
-    
+
     if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
       console.warn('Unauthorized cron request');
       return NextResponse.json(
@@ -31,11 +31,11 @@ export async function POST(req: NextRequest) {
     }
 
     console.log('🔄 Starting expired rides check...');
-    
+
     // Connect to MongoDB
     const mongoose = await connectDB();
     const db = mongoose.connection.db;
-    
+
     if (!db) {
       throw new Error('Database connection not available');
     }
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
         // Send email
         await sendRideExpirationEmail(
           user.email,
-          profile?.fullName || user.name || 'User',
+          profile?.fullName || 'User',
           {
             startLocation: ride.startLocation,
             endLocation: ride.endLocation,
@@ -82,12 +82,12 @@ export async function POST(req: NextRequest) {
         // Mark email as sent in database
         await ridesCollection.updateOne(
           { _id: ride._id },
-          { 
-            $set: { 
-              emailSent: true, 
+          {
+            $set: {
+              emailSent: true,
               emailSentAt: new Date(),
               notificationSentAt: new Date(),
-            } 
+            }
           }
         );
 
@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('❌ Cron job error:', error);
     return NextResponse.json(
-      { 
+      {
         success: false,
         error: 'Failed to process expired rides',
         details: error instanceof Error ? error.message : 'Unknown error'
