@@ -98,6 +98,7 @@ const RidesList = ({
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const [userLoaded, setUserLoaded] = useState(false);
+  const [reactivatingRides, setReactivatingRides] = useState<Set<string>>(new Set());
   const sortBy = externalSortBy !== undefined ? externalSortBy : internalSortBy;
   const filterType = externalFilterType !== undefined ? externalFilterType : internalFilterType;
   const handleSortByChange = onSortByChange || setInternalSortBy;
@@ -636,6 +637,8 @@ const RidesList = ({
 
   const handleExtendRide = async (ride: Ride) => {
     try {
+      setReactivatingRides(prev => new Set([...prev, ride.id]));
+      
       // Calculate new expiry: 24 hours from now (or from new scheduled time if they edit)
       const newExpiresAt = new Date();
       newExpiresAt.setHours(newExpiresAt.getHours() + 24);
@@ -660,6 +663,12 @@ const RidesList = ({
         title: 'Error',
         description: error.message || 'Failed to reactivate ride',
         variant: 'destructive',
+      });
+    } finally {
+      setReactivatingRides(prev => {
+        const next = new Set(prev);
+        next.delete(ride.id);
+        return next;
       });
     }
   };
@@ -1069,12 +1078,13 @@ const RidesList = ({
                         <div className="flex items-center gap-2">
                           <span className="text-xs">Reactivate</span>
                           <Switch
-                            checked={false}
+                            checked={reactivatingRides.has(ride.id)}
                             onCheckedChange={(checked) => {
                               if (checked) {
                                 handleExtendRide(ride);
                               }
                             }}
+                            disabled={reactivatingRides.has(ride.id)}
                           />
                         </div>
                       </div>
