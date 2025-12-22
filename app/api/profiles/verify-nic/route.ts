@@ -39,6 +39,11 @@ export const POST = authMiddleware(async (req) => {
       );
     }
 
+    // Allow resubmission if previously rejected
+    // Clear rejection fields when resubmitting
+    profile.nicRejectionReason = undefined;
+    profile.nicRejectedAt = undefined;
+
     // Update profile with NIC verification images
     profile.nicFrontImageUrl = nicFrontImageUrl;
     profile.nicBackImageUrl = nicBackImageUrl;

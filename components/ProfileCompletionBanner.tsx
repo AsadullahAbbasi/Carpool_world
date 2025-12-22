@@ -32,8 +32,10 @@ const ProfileCompletionBanner = () => {
   const [resendCooldown, setResendCooldown] = useState(0);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [showNicDialog, setShowNicDialog] = useState(false);
-  const [bannerType, setBannerType] = useState<'profile' | 'nic' | 'nic-pending' | 'email-unverified'>('profile');
+  const [bannerType, setBannerType] = useState<'profile' | 'nic' | 'nic-pending' | 'email-unverified' | 'nic-rejected'>('profile');
   const [showProfileDialog, setShowProfileDialog] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [showRejectionDialog, setShowRejectionDialog] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -66,16 +68,18 @@ const ProfileCompletionBanner = () => {
         const hasAvatar = !!profile.avatarUrl;
         const avatarRequired = profile.gender !== 'female';
         const complete = hasRequiredFields && (avatarRequired ? hasAvatar : true);
-        
+
         const nicVerified = profile.nicVerified || false;
         const nicPending = !nicVerified && (profile.nicFrontImageUrl || profile.nicBackImageUrl);
         const emailVerified = data.user.emailVerified;
+        const rejectionReason = profile.nicRejectionReason;
 
         setIsProfileComplete(complete);
         setIsNicVerified(nicVerified);
         setIsNicPending(nicPending);
         setIsEmailVerified(emailVerified);
         setEmail(data.user.email);
+        setRejectionReason(rejectionReason || '');
 
         // Show banner based on profile and NIC status
         // Only show if not dismissed
@@ -90,11 +94,16 @@ const ProfileCompletionBanner = () => {
           if (typeof window !== 'undefined') {
             localStorage.removeItem('banner-dismissed-nic');
             localStorage.removeItem('banner-dismissed-nic-pending');
+            localStorage.removeItem('banner-dismissed-nic-rejected');
           }
           setShowBanner(false);
         } else if (nicPending && !isBannerDismissed('nic-pending')) {
           // NIC submitted but pending approval
           setBannerType('nic-pending');
+          setShowBanner(true);
+        } else if (rejectionReason && !nicPending && !nicVerified && !isBannerDismissed('nic-rejected')) {
+          // NIC rejected
+          setBannerType('nic-rejected');
           setShowBanner(true);
         } else if (!nicPending && !nicVerified && !isBannerDismissed('nic')) {
           // NIC not submitted
@@ -296,46 +305,141 @@ const ProfileCompletionBanner = () => {
     );
   }
 
+
+
+  // NIC Rejected Banner
+  if (bannerType === 'nic-rejected' && !isNicVerified && !isNicPending && isProfileComplete) {
+    return (
+      <>
+        <Alert className="mb-4 sm:mb-6 border-red-500/50 bg-red-500/10 animate-slide-up shadow-lg relative pr-8 sm:pr-10 p-[1rem] sm:p-[1.25rem]">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5 sm:h-6 sm:w-6 absolute top-2 right-2 sm:top-3 sm:right-3 text-red-900 dark:text-red-100 hover:bg-red-500/20"
+            onClick={() => dismissBanner('nic-rejected')}
+          >
+            <X className="h-3 w-3 sm:h-4 sm:w-4" />
+          </Button>
+          <ShieldAlert className="h-4 w-4 sm:h-5 sm:w-5 text-red-600 dark:text-red-500 mb-[0.5rem]" />
+          <AlertTitle className="text-red-900 dark:text-red-100 text-base sm:text-lg font-bold mb-[0.5rem]">
+            ❌ NIC Verification Rejected
+          </AlertTitle>
+          <AlertDescription className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-[0.75rem] sm:gap-[1rem]">
+            <div className="flex-1 text-center sm:text-left w-full sm:w-auto">
+              <p className="text-red-800 dark:text-red-200 font-medium text-sm sm:text-base">
+                Your previous NIC verification was not approved.
+              </p>
+              <div className="mt-1 flex flex-col sm:flex-row items-center gap-2">
+                <p className="text-xs sm:text-sm text-red-700 dark:text-red-300 line-clamp-1">
+                  Reason: {rejectionReason}
+                </p>
+                <Button
+                  variant="link"
+                  className="p-0 h-auto text-red-700 dark:text-red-300 font-bold underline"
+                  onClick={() => setShowRejectionDialog(true)}
+                >
+                  See More
+                </Button>
+              </div>
+            </div>
+            <div className="w-full sm:w-auto mt-[0.5rem] sm:mt-0 flex justify-center sm:justify-end">
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => setShowNicDialog(true)}
+                className="bg-red-600 hover:bg-red-700 text-white border-0 shadow-md w-full sm:w-auto text-sm h-[2.75rem] sm:h-[2.5rem]"
+              >
+                Try Again
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+
+        <Dialog open={showRejectionDialog} onOpenChange={setShowRejectionDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="text-red-600 flex items-center gap-2">
+                <ShieldAlert className="w-5 h-5" />
+                Verification Rejected
+              </DialogTitle>
+              <DialogDescription>
+                Your NIC verification request was rejected for the following reason:
+              </DialogDescription>
+            </DialogHeader>
+            <div className="bg-red-50 p-4 rounded-md border border-red-100 dark:bg-red-950/20 dark:border-red-900/50">
+              <p className="text-sm text-red-800 dark:text-red-200 whitespace-pre-wrap">
+                {rejectionReason}
+              </p>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <Button variant="outline" onClick={() => setShowRejectionDialog(false)}>
+                Close
+              </Button>
+              <Button onClick={() => {
+                setShowRejectionDialog(false);
+                setShowNicDialog(true);
+              }}>
+                Try Again
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showNicDialog} onOpenChange={setShowNicDialog}>
+          <DialogContent className="w-[calc(100%-1rem)] max-w-3xl max-h-[90vh] overflow-y-auto sm:w-full">
+            <DialogHeader>
+              <DialogTitle>NIC Verification</DialogTitle>
+              <DialogDescription>
+                Upload clear photos of your NIC front and back for verification. This helps build trust in the community.
+              </DialogDescription>
+            </DialogHeader>
+            <NicVerification onVerificationComplete={handleNicVerificationComplete} />
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  }
+
   // NIC Not Submitted Banner
   if (bannerType === 'nic' && !isNicVerified && !isNicPending && isProfileComplete) {
     return (
       <>
-      <Alert className="mb-4 sm:mb-6 border-yellow-500/50 bg-yellow-500/10 animate-slide-up shadow-lg relative pr-8 sm:pr-10 p-[1rem] sm:p-[1.25rem]">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-5 w-5 sm:h-6 sm:w-6 absolute top-2 right-2 sm:top-3 sm:right-3 text-yellow-900 dark:text-yellow-100 hover:bg-yellow-500/20"
-          onClick={() => dismissBanner('nic')}
-        >
-          <X className="h-3 w-3 sm:h-4 sm:w-4" />
-        </Button>
-        <ShieldAlert className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-600 dark:text-yellow-500 mb-[0.5rem]" />
-        <AlertTitle className="text-yellow-900 dark:text-yellow-100 text-base sm:text-lg font-bold mb-[0.5rem]">
-          ⚠️ NIC Not Verified
-        </AlertTitle>
-        <AlertDescription className="flex flex-col sm:flex-row items-center sm:items-center justify-between gap-[0.75rem] sm:gap-[1rem]">
-          <div className="flex-1 text-center sm:text-left w-full sm:w-auto">
-            <p className="text-yellow-800 dark:text-yellow-200 font-medium text-sm sm:text-base mb-[0.5rem]">
-              Your NIC is not verified. Verify your NIC to:
-            </p>
-            <ul className="text-xs sm:text-sm text-yellow-700 dark:text-yellow-300 list-disc list-inside space-y-[0.25rem]">
-              <li>Build trust with other users</li>
-              <li>Remove "NIC Not Verified" badge from your rides</li>
-              <li>Access all platform features</li>
-            </ul>
-          </div>
-          <div className="w-full sm:w-auto mt-[0.5rem] sm:mt-0 flex justify-center sm:justify-end">
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => setShowNicDialog(true)}
-              className="bg-yellow-600 hover:bg-yellow-700 text-white border-0 shadow-md w-full sm:w-auto text-sm h-[2.75rem] sm:h-[2.5rem]"
-            >
-              Verify NIC Now
-            </Button>
-          </div>
-        </AlertDescription>
-      </Alert>
+        <Alert className="mb-4 sm:mb-6 border-yellow-500/50 bg-yellow-500/10 animate-slide-up shadow-lg relative pr-8 sm:pr-10 p-[1rem] sm:p-[1.25rem]">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5 sm:h-6 sm:w-6 absolute top-2 right-2 sm:top-3 sm:right-3 text-yellow-900 dark:text-yellow-100 hover:bg-yellow-500/20"
+            onClick={() => dismissBanner('nic')}
+          >
+            <X className="h-3 w-3 sm:h-4 sm:w-4" />
+          </Button>
+          <ShieldAlert className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-600 dark:text-yellow-500 mb-[0.5rem]" />
+          <AlertTitle className="text-yellow-900 dark:text-yellow-100 text-base sm:text-lg font-bold mb-[0.5rem]">
+            ⚠️ NIC Not Verified
+          </AlertTitle>
+          <AlertDescription className="flex flex-col sm:flex-row items-center sm:items-center justify-between gap-[0.75rem] sm:gap-[1rem]">
+            <div className="flex-1 text-center sm:text-left w-full sm:w-auto">
+              <p className="text-yellow-800 dark:text-yellow-200 font-medium text-sm sm:text-base mb-[0.5rem]">
+                Your NIC is not verified. Verify your NIC to:
+              </p>
+              <ul className="text-xs sm:text-sm text-yellow-700 dark:text-yellow-300 list-disc list-inside space-y-[0.25rem]">
+                <li>Build trust with other users</li>
+                <li>Remove "NIC Not Verified" badge from your rides</li>
+                <li>Access all platform features</li>
+              </ul>
+            </div>
+            <div className="w-full sm:w-auto mt-[0.5rem] sm:mt-0 flex justify-center sm:justify-end">
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => setShowNicDialog(true)}
+                className="bg-yellow-600 hover:bg-yellow-700 text-white border-0 shadow-md w-full sm:w-auto text-sm h-[2.75rem] sm:h-[2.5rem]"
+              >
+                Verify NIC Now
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
 
         <Dialog open={showNicDialog} onOpenChange={setShowNicDialog}>
           <DialogContent className="w-[calc(100%-1rem)] max-w-3xl max-h-[90vh] overflow-y-auto sm:w-full">

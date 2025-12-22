@@ -47,7 +47,10 @@ export async function GET(req: NextRequest) {
     async start(controller) {
       let changeStream: any = null;
       let heartbeatInterval: NodeJS.Timeout | null = null;
+      let expirationCheckInterval: NodeJS.Timeout | null = null;
       let isClosed = false;
+      let ridesCollection: any = null;
+      let trackedExpiredRides = new Set<string>(); // Track which rides we've already notified about
 
       const sendEvent = (data: any) => {
         if (isClosed) return;
@@ -68,11 +71,53 @@ export async function GET(req: NextRequest) {
         }
       };
 
+      // Check for expired rides periodically
+      const checkForExpiredRides = async () => {
+        if (isClosed || !ridesCollection) return;
+        try {
+          const now = new Date();
+          
+          // Find rides that have expired but aren't archived yet
+          const expiredRides = await ridesCollection.find({
+            expiresAt: { $lte: now },
+            isArchived: false,
+          }).toArray();
+
+          for (const ride of expiredRides) {
+            const rideId = ride._id.toString();
+            // Only notify once per ride expiration
+            if (!trackedExpiredRides.has(rideId)) {
+              trackedExpiredRides.add(rideId);
+              
+              // Fetch profile and user for the ride
+              const profile = await Profile.findOne({ userId: ride.userId }).lean();
+              const user = await User.findById(ride.userId).lean();
+              const transformedRide = transformRide(ride, profile || undefined);
+
+              // Send expiration event to SSE clients
+              sendEvent({
+                operation: 'expire',
+                ride: transformedRide,
+              });
+
+              // Email sending is now handled by Vercel Cron (daily at 12 AM)
+              // No need to send emails in real-time streaming
+            }
+          }
+        } catch (error) {
+          console.error('Error checking for expired rides:', error);
+        }
+      };
+
       const cleanup = async () => {
         isClosed = true;
         if (heartbeatInterval) {
           clearInterval(heartbeatInterval);
           heartbeatInterval = null;
+        }
+        if (expirationCheckInterval) {
+          clearInterval(expirationCheckInterval);
+          expirationCheckInterval = null;
         }
         if (changeStream) {
           try {
@@ -100,7 +145,7 @@ export async function GET(req: NextRequest) {
         }
 
         // Get the collection
-        const ridesCollection = db.collection('rides');
+        ridesCollection = db.collection('rides');
 
         // Set up change stream with fullDocument: 'updateLookup'
         changeStream = ridesCollection.watch(
@@ -120,6 +165,11 @@ export async function GET(req: NextRequest) {
           sendHeartbeat();
         }, 30000);
 
+        // Set up expiration check (every 10 seconds)
+        expirationCheckInterval = setInterval(() => {
+          checkForExpiredRides();
+        }, 10000);
+
         // Handle change stream events
         changeStream.on('change', async (change: any) => {
           try {
@@ -132,6 +182,7 @@ export async function GET(req: NextRequest) {
               // For delete operations, we only have the documentKey
               const rideId = change.documentKey?._id?.toString();
               if (rideId) {
+                trackedExpiredRides.delete(rideId); // Clean up tracking
                 sendEvent({
                   operation: 'delete',
                   rideId: rideId,

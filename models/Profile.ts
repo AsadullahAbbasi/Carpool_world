@@ -15,6 +15,9 @@ export interface IProfile extends Document {
   // Temporary fields for pending verification
   nicFrontImageUrl?: string; // Temporary: pending verification
   nicBackImageUrl?: string; // Temporary: pending verification
+  // NIC rejection fields
+  nicRejectionReason?: string; // Reason for NIC rejection
+  nicRejectedAt?: Date; // When NIC was rejected
   // Settings
   disableAutoExpiry?: boolean; // If true, rides won't auto-expire
   createdAt: Date;
@@ -52,6 +55,9 @@ const profileSchema = new Schema<IProfile>(
     // Temporary fields for pending verification
     nicFrontImageUrl: String, // Temporary: pending verification
     nicBackImageUrl: String, // Temporary: pending verification
+    // NIC rejection fields
+    nicRejectionReason: String, // Reason for NIC rejection
+    nicRejectedAt: Date, // When NIC was rejected
     // Settings
     disableAutoExpiry: {
       type: Boolean,

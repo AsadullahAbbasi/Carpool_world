@@ -220,6 +220,17 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
       const { date, time } = getCurrentDateTime();
       const time12 = convert24To12(time);
 
+      // Extract expiry date and time from expires_at
+      let expiryDate = '';
+      let expiryTime = '';
+      if (rideToEdit.expires_at) {
+        const expiresAtDate = new Date(rideToEdit.expires_at);
+        expiryDate = expiresAtDate.toISOString().split('T')[0]; // YYYY-MM-DD
+        const hours = String(expiresAtDate.getHours()).padStart(2, '0');
+        const minutes = String(expiresAtDate.getMinutes()).padStart(2, '0');
+        expiryTime = `${hours}:${minutes}`; // HH:MM in 24-hour format
+      }
+
       const editFormData = {
         type: rideToEdit.type,
         gender_preference: rideToEdit.gender_preference || 'both',
@@ -232,8 +243,8 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
         phone: rideToEdit.phone || '',
         community_ids: commIds,
         recurring_days: rideToEdit.recurring_days || [],
-        expiry_date: '', // Will be calculated from expires_at if needed
-        expiry_time: '',
+        expiry_date: expiryDate,
+        expiry_time: expiryTime,
       };
 
       setFormData(editFormData);
@@ -492,9 +503,9 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
         expiresAt = new Date(scheduledDateTime.getTime() + 24 * 60 * 60 * 1000);
       }
 
-      // Safety check: ensure expiration is at least 1 hour in the future
-      const minExpiration = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
-      if (expiresAt < minExpiration) {
+      // Safety check: ensure expiration is at least 5 minutes in the future (only if not editing with custom expiry)
+      const minExpiration = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes from now
+      if (!formData.expiry_date && expiresAt < minExpiration) {
         expiresAt = minExpiration;
       }
 
@@ -932,9 +943,9 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
                     onBlur={() => {
                       setIsExpiryDateOpen(false);
                     }}
-                    min={formData.ride_date || new Date().toISOString().split('T')[0]}
+                    min={new Date().toISOString().split('T')[0]}
                   />
-                  <p className="text-xs text-muted-foreground">Leave empty to auto-expire 24h after ride time</p>
+                  <p className="text-xs text-muted-foreground">Leave empty for 24h auto-expiry. Set date & time to expire sooner (e.g., today in 5 mins for testing)</p>
                 </div>
                 <div className="flex flex-col gap-[0.5rem]">
                   <Label htmlFor="expiry_time">Expiry Time</Label>

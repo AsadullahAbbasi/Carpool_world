@@ -46,6 +46,7 @@ export default function AdminPage() {
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [showVerifyDialog, setShowVerifyDialog] = useState(false);
   const [nicNumber, setNicNumber] = useState('');
+  const [nicRejectionReason, setNicRejectionReason] = useState('');
   const [verifying, setVerifying] = useState(false);
   const [communityRequests, setCommunityRequests] = useState<any[]>([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
@@ -192,17 +193,33 @@ export default function AdminPage() {
       return;
     }
 
+    if (!verified && !nicRejectionReason.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Please enter a rejection reason',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setVerifying(true);
     try {
+      const payload: any = {
+        profileId: selectedProfile._id,
+        verified,
+      };
+
+      if (verified) {
+        payload.nicNumber = nicNumber.trim();
+      } else {
+        payload.rejectionReason = nicRejectionReason.trim();
+      }
+
       const response = await fetch('/api/admin/verify-nic', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({
-          profileId: selectedProfile._id,
-          nicNumber: nicNumber.trim(),
-          verified,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -215,6 +232,7 @@ export default function AdminPage() {
         setShowVerifyDialog(false);
         setSelectedProfile(null);
         setNicNumber('');
+        setNicRejectionReason('');
         loadProfiles();
       } else {
         toast({
@@ -237,6 +255,7 @@ export default function AdminPage() {
   const openVerifyDialog = (profile: Profile) => {
     setSelectedProfile(profile);
     setNicNumber(profile.nicNumber || '');
+    setNicRejectionReason('');
     setShowVerifyDialog(true);
   };
 
@@ -449,67 +468,67 @@ export default function AdminPage() {
                   </Button>
                 </div>
               </CardHeader>
-          <CardContent>
-            {loadingProfiles ? (
-              <div className="text-center py-8 text-muted-foreground">Loading...</div>
-            ) : profiles.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                No pending verifications
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {profiles.map((profile) => (
-                  <Card key={profile._id} className="border">
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <CardTitle className="text-lg">{profile.fullName}</CardTitle>
-                          <CardDescription>Username: {profile.username}</CardDescription>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openVerifyDialog(profile)}
-                        >
-                          <Eye className="w-4 h-4 mr-2" />
-                          Review
-                        </Button>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {profile.nicFrontImageUrl && (
-                          <div>
-                            <Label className="text-sm font-semibold mb-2 block">
-                              Front Image
-                            </Label>
-                            <img
-                              src={profile.nicFrontImageUrl}
-                              alt="NIC Front"
-                              className="w-full rounded-lg border max-h-64 object-contain bg-gray-50"
-                            />
+              <CardContent>
+                {loadingProfiles ? (
+                  <div className="text-center py-8 text-muted-foreground">Loading...</div>
+                ) : profiles.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No pending verifications
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {profiles.map((profile) => (
+                      <Card key={profile._id} className="border">
+                        <CardHeader>
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <CardTitle className="text-lg">{profile.fullName}</CardTitle>
+                              <CardDescription>Username: {profile.username}</CardDescription>
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openVerifyDialog(profile)}
+                            >
+                              <Eye className="w-4 h-4 mr-2" />
+                              Review
+                            </Button>
                           </div>
-                        )}
-                        {profile.nicBackImageUrl && (
-                          <div>
-                            <Label className="text-sm font-semibold mb-2 block">
-                              Back Image
-                            </Label>
-                            <img
-                              src={profile.nicBackImageUrl}
-                              alt="NIC Back"
-                              className="w-full rounded-lg border max-h-64 object-contain bg-gray-50"
-                            />
+                        </CardHeader>
+                        <CardContent>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {profile.nicFrontImageUrl && (
+                              <div>
+                                <Label className="text-sm font-semibold mb-2 block">
+                                  Front Image
+                                </Label>
+                                <img
+                                  src={profile.nicFrontImageUrl}
+                                  alt="NIC Front"
+                                  className="w-full rounded-lg border max-h-64 object-contain bg-gray-50"
+                                />
+                              </div>
+                            )}
+                            {profile.nicBackImageUrl && (
+                              <div>
+                                <Label className="text-sm font-semibold mb-2 block">
+                                  Back Image
+                                </Label>
+                                <img
+                                  src={profile.nicBackImageUrl}
+                                  alt="NIC Back"
+                                  className="w-full rounded-lg border max-h-64 object-contain bg-gray-50"
+                                />
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="communities">
@@ -642,7 +661,7 @@ export default function AdminPage() {
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="nicNumber">NIC Number</Label>
+                <Label htmlFor="nicNumber">NIC Number (Required for Verification)</Label>
                 <Input
                   id="nicNumber"
                   type="text"
@@ -669,6 +688,17 @@ export default function AdminPage() {
                 <p className="text-xs text-muted-foreground">
                   Format: 12345-1234567-1 or 1234512345671
                 </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="nicRejectionReason">Rejection Reason (Required for Rejection)</Label>
+                <Textarea
+                  id="nicRejectionReason"
+                  value={nicRejectionReason}
+                  onChange={(e) => setNicRejectionReason(e.target.value)}
+                  placeholder="Explain why the NIC is being rejected (e.g. Blurry image, Name mismatch)"
+                  rows={3}
+                />
               </div>
             </div>
           )}
@@ -720,7 +750,7 @@ export default function AdminPage() {
                 <Label className="text-sm font-semibold">Description:</Label>
                 <p className="text-sm text-muted-foreground whitespace-pre-wrap">{selectedRequest.description}</p>
               </div>
-              
+
               <div className="bg-muted/50 p-4 rounded-lg space-y-2">
                 <Label className="text-sm font-semibold">Rejection Guidelines:</Label>
                 <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">

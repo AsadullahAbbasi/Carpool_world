@@ -3,6 +3,9 @@ import connectDB from '@/lib/mongodb';
 import { CommunityRequest } from '@/models/CommunityRequest';
 import { Community } from '@/models/Community';
 import { CommunityMember } from '@/models/CommunityMember';
+import { User } from '@/models/User';
+import { Profile } from '@/models/Profile';
+import { sendCommunityApprovalEmail, sendCommunityRejectionEmail } from '@/lib/resend-client';
 import { z } from 'zod';
 
 const updateRequestSchema = z.object({
@@ -110,6 +113,23 @@ export async function PUT(
         userId: request.requestedBy,
       });
 
+      // Send approval email to requester
+      try {
+        const user = await User.findById(request.requestedBy).lean();
+        const profile = await Profile.findOne({ userId: request.requestedBy }).lean();
+        
+        if (user && user.email) {
+          await sendCommunityApprovalEmail(
+            user.email,
+            profile?.fullName || user.name || 'User',
+            request.name
+          );
+        }
+      } catch (emailError) {
+        console.error('Failed to send community approval email:', emailError);
+        // Don't block the response if email fails
+      }
+
       return NextResponse.json({
         message: 'Community request approved and community created',
         request: {
@@ -121,6 +141,26 @@ export async function PUT(
           name: community.name,
         },
       });
+    }
+
+    // If rejected, send rejection email
+    if (data.status === 'rejected') {
+      try {
+        const user = await User.findById(request.requestedBy).lean();
+        const profile = await Profile.findOne({ userId: request.requestedBy }).lean();
+        
+        if (user && user.email) {
+          await sendCommunityRejectionEmail(
+            user.email,
+            profile?.fullName || user.name || 'User',
+            request.name,
+            data.rejectionReason || 'Your community request does not meet our requirements at this time.'
+          );
+        }
+      } catch (emailError) {
+        console.error('Failed to send community rejection email:', emailError);
+        // Don't block the response if email fails
+      }
     }
 
     return NextResponse.json({

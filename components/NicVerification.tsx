@@ -11,6 +11,7 @@ import { profileApi } from '@/lib/api-client';
 
 interface NicVerificationProps {
   onVerificationComplete?: () => void;
+  nicRejectionReason?: string;
 }
 
 interface NicVerificationResponse {
@@ -22,7 +23,7 @@ interface NicVerificationResponse {
   error?: string;
 }
 
-const NicVerification = ({ onVerificationComplete }: NicVerificationProps) => {
+const NicVerification = ({ onVerificationComplete, nicRejectionReason }: NicVerificationProps) => {
   const [uploadingFront, setUploadingFront] = useState(false);
   const [uploadingBack, setUploadingBack] = useState(false);
   const [nicFrontImageUrl, setNicFrontImageUrl] = useState('');
@@ -133,6 +134,18 @@ const NicVerification = ({ onVerificationComplete }: NicVerificationProps) => {
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-[1.25rem] sm:gap-[1.5rem]">
+        {nicRejectionReason && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <XCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-semibold text-red-900 mb-1">NIC Verification Rejected</p>
+                <p className="text-sm text-red-800 mb-3">{nicRejectionReason}</p>
+                <p className="text-xs text-red-700">You can resubmit your NIC with corrected information.</p>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="grid grid-cols-1 gap-[1.25rem] md:grid-cols-2 md:gap-[1.5rem]">
           {/* Front Image */}
           <div className="flex flex-col gap-[0.5rem]">

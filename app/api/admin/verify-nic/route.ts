@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import { Profile } from '@/models/Profile';
 import { User } from '@/models/User';
+import { sendNICApprovalEmail, sendNICRejectionEmail } from '@/lib/resend-client';
 import { z } from 'zod';
 import { validateNIC } from '@/lib/validation';
 import { deleteFile } from '@/lib/storage';
@@ -42,8 +43,25 @@ function isAdmin(req: NextRequest): boolean {
 
 const verifyNicSchema = z.object({
   profileId: z.string(),
-  nicNumber: z.string().min(13).max(15),
+  nicNumber: z.string().optional(),
+  rejectionReason: z.string().optional(),
   verified: z.boolean(),
+}).refine((data) => {
+  if (data.verified) {
+    return !!data.nicNumber && data.nicNumber.length >= 13 && data.nicNumber.length <= 15;
+  }
+  return true;
+}, {
+  message: "NIC number is required and must be valid when verifying",
+  path: ["nicNumber"],
+}).refine((data) => {
+  if (!data.verified) {
+    return !!data.rejectionReason && data.rejectionReason.length > 0;
+  }
+  return true;
+}, {
+  message: "Rejection reason is required when rejecting",
+  path: ["rejectionReason"],
 });
 
 export async function GET(req: NextRequest) {
@@ -111,7 +129,16 @@ export async function POST(req: NextRequest) {
     await connectDB();
 
     const body = await req.json();
-    const { profileId, nicNumber, verified } = verifyNicSchema.parse(body);
+    const parseResult = verifyNicSchema.safeParse(body);
+
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: 'Validation error', details: parseResult.error.errors },
+        { status: 400 }
+      );
+    }
+
+    const { profileId, nicNumber, verified, rejectionReason } = parseResult.data;
 
     const profile = await Profile.findById(profileId);
     if (!profile) {
@@ -122,7 +149,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Validate NIC number format if verifying
-    if (verified) {
+    if (verified && nicNumber) {
       const validation = validateNIC(nicNumber);
       if (!validation.valid) {
         return NextResponse.json(
@@ -133,7 +160,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Handle images based on verification status
-    if (verified) {
+    if (verified && nicNumber) {
       // Move images from temporary fields to permanent fields
       if (profile.nicFrontImageUrl) {
         profile.front = profile.nicFrontImageUrl;
@@ -145,6 +172,10 @@ export async function POST(req: NextRequest) {
       }
       profile.nicNumber = nicNumber;
       profile.nicVerified = true;
+
+      // Clear rejection fields when approved
+      profile.nicRejectionReason = undefined;
+      profile.nicRejectedAt = undefined;
     } else {
       // Rejected: Delete images from Cloudinary
       const deletePromises: Promise<void>[] = [];
@@ -175,9 +206,45 @@ export async function POST(req: NextRequest) {
       profile.nicBackImageUrl = undefined;
       profile.nicNumber = undefined;
       profile.nicVerified = false;
+
+      // Store rejection reason
+      profile.nicRejectionReason = rejectionReason || 'Your NIC verification was rejected. Please review and resubmit.';
+      profile.nicRejectedAt = new Date();
     }
 
     await profile.save();
+
+    // Send approval email if NIC was verified
+    if (verified && nicNumber) {
+      try {
+        const user = await User.findById(profile.userId).lean();
+        if (user && user.email && profile.nicNumber) {
+          await sendNICApprovalEmail(
+            user.email,
+            profile.fullName || user.name || 'User',
+            profile.nicNumber
+          );
+        }
+      } catch (emailError) {
+        console.error('Failed to send NIC approval email:', emailError);
+        // Don't block the response if email fails
+      }
+    } else {
+      // Send rejection email if NIC was rejected
+      try {
+        const user = await User.findById(profile.userId).lean();
+        if (user && user.email && profile.nicRejectionReason) {
+          await sendNICRejectionEmail(
+            user.email,
+            profile.fullName || user.name || 'User',
+            profile.nicRejectionReason
+          );
+        }
+      } catch (emailError) {
+        console.error('Failed to send NIC rejection email:', emailError);
+        // Don't block the response if email fails
+      }
+    }
 
     return NextResponse.json({
       message: verified ? 'NIC verified successfully' : 'NIC marked as invalid',
@@ -202,4 +269,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-

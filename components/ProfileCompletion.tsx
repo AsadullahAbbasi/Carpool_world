@@ -19,6 +19,7 @@ const ProfileCompletion = () => {
   const [uploading, setUploading] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [nicRejectionReason, setNicRejectionReason] = useState<string | undefined>(undefined);
   const [formData, setFormData] = useState({
     fullName: '',
 
@@ -53,6 +54,11 @@ const ProfileCompletion = () => {
           avatarUrl: profile.avatarUrl || '',
           gender: profile.gender || '',
         });
+
+        // Set NIC rejection reason if present
+        if (profile.nicRejectionReason) {
+          setNicRejectionReason(profile.nicRejectionReason);
+        }
 
         // If profile is already complete, redirect to dashboard (client-side only)
         if (
@@ -311,7 +317,7 @@ const ProfileCompletion = () => {
             </div>
             {showNicVerification && (
               <div className="mt-4 animate-fade-in">
-                <NicVerification />
+                <NicVerification nicRejectionReason={nicRejectionReason} />
               </div>
             )}
           </div>

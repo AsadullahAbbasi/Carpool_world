@@ -36,6 +36,7 @@ export const GET = authMiddleware(async (req) => {
         nicVerified: profile.nicVerified || false,
         front: profile.front,
         back: profile.back,
+        nicRejectionReason: profile.nicRejectionReason,
         disableAutoExpiry: profile.disableAutoExpiry || false,
       },
     });
@@ -92,6 +93,7 @@ export const PUT = authMiddleware(async (req) => {
         nicVerified: profile.nicVerified || false,
         front: profile.front,
         back: profile.back,
+        nicRejectionReason: profile.nicRejectionReason,
         disableAutoExpiry: profile.disableAutoExpiry || false,
       },
     });

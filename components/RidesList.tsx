@@ -83,7 +83,7 @@ const RidesList = ({
   const [loading, setLoading] = useState(initialRides.length === 0);
   const [currentUserId, setCurrentUserId] = useState<string | null>(initialUser?.id || null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(!!initialUser);
-  const [isProfileComplete, setIsProfileComplete] = useState(true);
+  const [isProfileComplete, setIsProfileComplete] = useState(false);
   const [editingRide, setEditingRide] = useState<Ride | null>(null);
   const [reviewingRide, setReviewingRide] = useState<Ride | null>(null);
   const [viewingReviewsRide, setViewingReviewsRide] = useState<Ride | null>(null);
@@ -99,6 +99,7 @@ const RidesList = ({
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const [userLoaded, setUserLoaded] = useState(false);
   const [reactivatingRides, setReactivatingRides] = useState<Set<string>>(new Set());
+  const [switchStates, setSwitchStates] = useState<Map<string, boolean>>(new Map());
   const sortBy = externalSortBy !== undefined ? externalSortBy : internalSortBy;
   const filterType = externalFilterType !== undefined ? externalFilterType : internalFilterType;
   const handleSortByChange = onSortByChange || setInternalSortBy;
@@ -135,7 +136,7 @@ const RidesList = ({
     if (initialUser) {
       setCurrentUserId(initialUser.id);
       setIsAuthenticated(true);
-      setUserLoaded(true);
+      // Don't set userLoaded true yet, wait for profile check
       // Check profile completion
       getCurrentUser();
     } else {
@@ -314,7 +315,7 @@ const RidesList = ({
 
   // Store current filter values in refs to avoid stale closures in SSE handler
   const filterRefs = useRef({ filterType, sortBy, selectedCommunity, searchQuery });
-  
+
   // Update refs when filters change
   useEffect(() => {
     filterRefs.current = { filterType, sortBy, selectedCommunity, searchQuery };
@@ -380,158 +381,182 @@ const RidesList = ({
               if (data.ride) {
                 const { ride } = data;
 
-              if (operation === 'insert') {
-                // Add new ride to the top of the list
-                setAllRides((prev) => {
-                  // Check if ride already exists (avoid duplicates)
-                  const exists = prev.some((r) => r.id === ride.id);
-                  if (exists) return prev;
+                if (operation === 'insert') {
+                  // Add new ride to the top of the list
+                  setAllRides((prev) => {
+                    // Check if ride already exists (avoid duplicates)
+                    const exists = prev.some((r) => r.id === ride.id);
+                    if (exists) return prev;
 
-                  // Filter out expired/archived rides if needed (for consistency)
-                  const now = new Date();
-                  const isExpired = ride.expires_at && new Date(ride.expires_at) <= now;
-                  if (ride.is_archived || isExpired) {
-                    // Still add it, but client can filter if needed
-                  }
-
-                  // Add to top
-                  return [ride, ...prev];
-                });
-
-                // Update filtered rides list
-                setRides((prev) => {
-                  const exists = prev.some((r) => r.id === ride.id);
-                  if (exists) return prev;
-
-                  // Apply current filters (use refs to get latest values)
-                  const currentFilters = filterRefs.current;
-                  let shouldInclude = true;
-
-                  // Apply verification filter
-                  if (currentFilters.filterType === 'verified' && !ride.profiles?.nic_verified) {
-                    shouldInclude = false;
-                  }
-
-                  // Apply gender preference filter
-                  if (currentFilters.filterType === 'girls_only' || currentFilters.filterType === 'boys_only' || currentFilters.filterType === 'both') {
-                    if (ride.gender_preference !== currentFilters.filterType) {
-                      shouldInclude = false;
+                    // Filter out expired/archived rides if needed (for consistency)
+                    const now = new Date();
+                    const isExpired = ride.expires_at && new Date(ride.expires_at) <= now;
+                    if (ride.is_archived || isExpired) {
+                      // Still add it, but client can filter if needed
                     }
-                  }
 
-                  // Apply type filter
-                  if (currentFilters.filterType === 'offering' || currentFilters.filterType === 'seeking') {
-                    if (ride.type !== currentFilters.filterType) {
-                      shouldInclude = false;
-                    }
-                  }
-
-                  // Apply community filter
-                  if (currentFilters.selectedCommunity) {
-                    if (!ride.community_ids || !ride.community_ids.includes(currentFilters.selectedCommunity)) {
-                      shouldInclude = false;
-                    }
-                  }
-
-                  // Apply search filter
-                  if (currentFilters.searchQuery) {
-                    const lowerQuery = currentFilters.searchQuery.toLowerCase();
-                    const matchesSearch =
-                      (ride.start_location || '').toLowerCase().includes(lowerQuery) ||
-                      (ride.end_location || '').toLowerCase().includes(lowerQuery) ||
-                      (ride.description || '').toLowerCase().includes(lowerQuery);
-                    if (!matchesSearch) {
-                      shouldInclude = false;
-                    }
-                  }
-
-                  if (!shouldInclude) return prev;
-
-                  // Add to top and apply sort
-                  const newRides = [ride, ...prev];
-                  return applySortToRides(newRides, currentFilters.sortBy);
-                });
-              } else if (operation === 'update') {
-                // Replace existing ride
-                setAllRides((prev) => {
-                  const index = prev.findIndex((r) => r.id === ride.id);
-                  if (index === -1) {
-                    // Ride not in list, add it to top
+                    // Add to top
                     return [ride, ...prev];
-                  }
+                  });
+
+                  // Update filtered rides list
+                  setRides((prev) => {
+                    const exists = prev.some((r) => r.id === ride.id);
+                    if (exists) return prev;
+
+                    // Apply current filters (use refs to get latest values)
+                    const currentFilters = filterRefs.current;
+                    let shouldInclude = true;
+
+                    // Apply verification filter
+                    if (currentFilters.filterType === 'verified' && !ride.profiles?.nic_verified) {
+                      shouldInclude = false;
+                    }
+
+                    // Apply gender preference filter
+                    if (currentFilters.filterType === 'girls_only' || currentFilters.filterType === 'boys_only' || currentFilters.filterType === 'both') {
+                      if (ride.gender_preference !== currentFilters.filterType) {
+                        shouldInclude = false;
+                      }
+                    }
+
+                    // Apply type filter
+                    if (currentFilters.filterType === 'offering' || currentFilters.filterType === 'seeking') {
+                      if (ride.type !== currentFilters.filterType) {
+                        shouldInclude = false;
+                      }
+                    }
+
+                    // Apply community filter
+                    if (currentFilters.selectedCommunity) {
+                      if (!ride.community_ids || !ride.community_ids.includes(currentFilters.selectedCommunity)) {
+                        shouldInclude = false;
+                      }
+                    }
+
+                    // Apply search filter
+                    if (currentFilters.searchQuery) {
+                      const lowerQuery = currentFilters.searchQuery.toLowerCase();
+                      const matchesSearch =
+                        (ride.start_location || '').toLowerCase().includes(lowerQuery) ||
+                        (ride.end_location || '').toLowerCase().includes(lowerQuery) ||
+                        (ride.description || '').toLowerCase().includes(lowerQuery);
+                      if (!matchesSearch) {
+                        shouldInclude = false;
+                      }
+                    }
+
+                    if (!shouldInclude) return prev;
+
+                    // Add to top and apply sort
+                    const newRides = [ride, ...prev];
+                    return applySortToRides(newRides, currentFilters.sortBy);
+                  });
+                } else if (operation === 'update') {
                   // Replace existing ride
-                  const updated = [...prev];
-                  updated[index] = ride;
-                  return updated;
-                });
+                  setAllRides((prev) => {
+                    const index = prev.findIndex((r) => r.id === ride.id);
+                    if (index === -1) {
+                      // Ride not in list, add it to top
+                      return [ride, ...prev];
+                    }
+                    // Replace existing ride
+                    const updated = [...prev];
+                    updated[index] = ride;
+                    return updated;
+                  });
 
-                // Update filtered rides list
-                setRides((prev) => {
-                  const index = prev.findIndex((r) => r.id === ride.id);
-                  
-                  // Check if ride should be included with current filters (use refs to get latest values)
-                  const currentFilters = filterRefs.current;
-                  let shouldInclude = true;
+                  // Update filtered rides list
+                  setRides((prev) => {
+                    const index = prev.findIndex((r) => r.id === ride.id);
 
-                  // Apply verification filter
-                  if (currentFilters.filterType === 'verified' && !ride.profiles?.nic_verified) {
-                    shouldInclude = false;
-                  }
+                    // Check if ride should be included with current filters (use refs to get latest values)
+                    const currentFilters = filterRefs.current;
+                    let shouldInclude = true;
 
-                  // Apply gender preference filter
-                  if (currentFilters.filterType === 'girls_only' || currentFilters.filterType === 'boys_only' || currentFilters.filterType === 'both') {
-                    if (ride.gender_preference !== currentFilters.filterType) {
+                    // Apply verification filter
+                    if (currentFilters.filterType === 'verified' && !ride.profiles?.nic_verified) {
                       shouldInclude = false;
                     }
-                  }
 
-                  // Apply type filter
-                  if (currentFilters.filterType === 'offering' || currentFilters.filterType === 'seeking') {
-                    if (ride.type !== currentFilters.filterType) {
-                      shouldInclude = false;
+                    // Apply gender preference filter
+                    if (currentFilters.filterType === 'girls_only' || currentFilters.filterType === 'boys_only' || currentFilters.filterType === 'both') {
+                      if (ride.gender_preference !== currentFilters.filterType) {
+                        shouldInclude = false;
+                      }
                     }
-                  }
 
-                  // Apply community filter
-                  if (currentFilters.selectedCommunity) {
-                    if (!ride.community_ids || !ride.community_ids.includes(currentFilters.selectedCommunity)) {
-                      shouldInclude = false;
+                    // Apply type filter
+                    if (currentFilters.filterType === 'offering' || currentFilters.filterType === 'seeking') {
+                      if (ride.type !== currentFilters.filterType) {
+                        shouldInclude = false;
+                      }
                     }
-                  }
 
-                  // Apply search filter
-                  if (currentFilters.searchQuery) {
-                    const lowerQuery = currentFilters.searchQuery.toLowerCase();
-                    const matchesSearch =
-                      (ride.start_location || '').toLowerCase().includes(lowerQuery) ||
-                      (ride.end_location || '').toLowerCase().includes(lowerQuery) ||
-                      (ride.description || '').toLowerCase().includes(lowerQuery);
-                    if (!matchesSearch) {
-                      shouldInclude = false;
+                    // Apply community filter
+                    if (currentFilters.selectedCommunity) {
+                      if (!ride.community_ids || !ride.community_ids.includes(currentFilters.selectedCommunity)) {
+                        shouldInclude = false;
+                      }
                     }
-                  }
 
-                  if (index === -1) {
-                    // Ride not in filtered list
-                    if (shouldInclude) {
-                      // Add it if it should be included
-                      const newRides = [ride, ...prev];
-                      return applySortToRides(newRides, currentFilters.sortBy);
+                    // Apply search filter
+                    if (currentFilters.searchQuery) {
+                      const lowerQuery = currentFilters.searchQuery.toLowerCase();
+                      const matchesSearch =
+                        (ride.start_location || '').toLowerCase().includes(lowerQuery) ||
+                        (ride.end_location || '').toLowerCase().includes(lowerQuery) ||
+                        (ride.description || '').toLowerCase().includes(lowerQuery);
+                      if (!matchesSearch) {
+                        shouldInclude = false;
+                      }
                     }
-                    return prev;
-                  }
 
-                  if (!shouldInclude) {
-                    // Remove from filtered list if it no longer matches filters
+                    if (index === -1) {
+                      // Ride not in filtered list
+                      if (shouldInclude) {
+                        // Add it if it should be included
+                        const newRides = [ride, ...prev];
+                        return applySortToRides(newRides, currentFilters.sortBy);
+                      }
+                      return prev;
+                    }
+
+                    if (!shouldInclude) {
+                      // Remove from filtered list if it no longer matches filters
+                      return prev.filter((r) => r.id !== ride.id);
+                    }
+
+                    // Update existing ride
+                    const updated = [...prev];
+                    updated[index] = ride;
+                    return applySortToRides(updated, currentFilters.sortBy);
+                  });
+                } else if (operation === 'expire') {
+                  // Handle ride expiration - update ride to mark it as expired
+                  setAllRides((prev) => {
+                    const index = prev.findIndex((r) => r.id === ride.id);
+                    if (index === -1) {
+                      // Ride not in list, add it
+                      return [ride, ...prev];
+                    }
+                    // Replace existing ride with updated expiration info
+                    const updated = [...prev];
+                    updated[index] = ride;
+                    return updated;
+                  });
+
+                  // Update filtered rides list - remove from All Rides since it's now expired
+                  setRides((prev) => {
+                    const index = prev.findIndex((r) => r.id === ride.id);
+                    if (index === -1) {
+                      return prev; // Ride not in filtered list
+                    }
+                    // Remove expired ride from All Rides view (it's no longer bookable)
+                    // Users viewing My Rides will still see it with the reactivate option
                     return prev.filter((r) => r.id !== ride.id);
-                  }
-
-                  // Update existing ride
-                  const updated = [...prev];
-                  updated[index] = ride;
-                  return applySortToRides(updated, currentFilters.sortBy);
-                });
-              }
+                  });
+                }
               }
             }
           } catch (error) {
@@ -541,7 +566,7 @@ const RidesList = ({
 
         eventSource.onerror = (error) => {
           console.error('SSE connection error:', error);
-          
+
           // Close the connection
           if (eventSource) {
             eventSource.close();
@@ -580,6 +605,16 @@ const RidesList = ({
     // Filters are applied client-side, so no need to reconnect
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showOnlyMyRides]);
+
+  // Timer to refresh countdown badges every minute
+  useEffect(() => {
+    const timer = setInterval(() => {
+      // Force re-render by updating a dummy state
+      setRides(prev => [...prev]);
+    }, 60000); // Update every 60 seconds
+
+    return () => clearInterval(timer);
+  }, []);
 
   const handleDelete = async (rideId: string) => {
     // Optimistic update - remove immediately
@@ -635,10 +670,26 @@ const RidesList = ({
     return expiresAt < new Date();
   };
 
+  // Calculate time remaining for a ride (in minutes)
+  const getTimeRemaining = (ride: Ride): { minutes: number; seconds: number; expired: boolean } => {
+    const expiresAt = new Date(ride.expires_at);
+    const now = new Date();
+    const diff = expiresAt.getTime() - now.getTime();
+
+    if (diff <= 0) {
+      return { minutes: 0, seconds: 0, expired: true };
+    }
+
+    const totalMinutes = Math.floor(diff / 60000);
+    const seconds = Math.floor((diff % 60000) / 1000);
+    return { minutes: totalMinutes, seconds, expired: false };
+  };
+
   const handleExtendRide = async (ride: Ride) => {
     try {
       setReactivatingRides(prev => new Set([...prev, ride.id]));
-      
+      setSwitchStates(prev => new Map(prev).set(ride.id, true)); // Show green
+
       // Calculate new expiry: 24 hours from now (or from new scheduled time if they edit)
       const newExpiresAt = new Date();
       newExpiresAt.setHours(newExpiresAt.getHours() + 24);
@@ -650,12 +701,23 @@ const RidesList = ({
         rideDate: currentDate, // Update ride date to current date when renewing
         expiresAt: newExpiresAt.toISOString(),
         isArchived: false,
+        emailSent: false, // Reset email flag so user gets notified again if it expires
       });
 
       toast({
         title: '✅ Ride Reactivated',
         description: 'Your ride has been reactivated and extended by 24 hours',
       });
+
+      // Reset switch after a brief delay to show the success color
+      setTimeout(() => {
+        setSwitchStates(prev => {
+          const next = new Map(prev);
+          next.delete(ride.id);
+          return next;
+        });
+      }, 1000);
+
       // Skip loading skeleton to avoid UI flash
       fetchRides(true);
     } catch (error: any) {
@@ -663,6 +725,12 @@ const RidesList = ({
         title: 'Error',
         description: error.message || 'Failed to reactivate ride',
         variant: 'destructive',
+      });
+      // Reset switch state on error
+      setSwitchStates(prev => {
+        const next = new Map(prev);
+        next.delete(ride.id);
+        return next;
       });
     } finally {
       setReactivatingRides(prev => {
@@ -816,7 +884,7 @@ const RidesList = ({
     }
   };
 
-  const actionsDisabled = !isAuthenticated || !isProfileComplete;
+  const actionsDisabled = userLoaded && (!isAuthenticated || !isProfileComplete);
   const getActionsDisabledMessage = () => {
     if (!isAuthenticated) {
       return 'Sign in to contact, review, or view reviews.';
@@ -897,51 +965,75 @@ const RidesList = ({
 
   return (
     <>
-    <div className="flex flex-col gap-[1rem] sm:gap-[1.25rem]">
-      {hasUnverifiedRides && filterType !== 'verified' && showUnverifiedNote && (
-        <Card
-          className="border-yellow-500/30 bg-yellow-500/5 relative group touch-pan-y select-none"
-          onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
-          onTouchEnd={onTouchEnd}
-        >
-          <CardContent className="py-[1rem] pr-[3.5rem] sm:py-[1rem] sm:pr-[3rem]">
-            {/* Close button - always top-right */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute top-[0.5rem] right-[0.25rem] text-yellow-800 dark:text-yellow-200 hover:bg-yellow-500/20 min-h-[2.75rem] min-w-[2.75rem] sm:top-[0.5rem] sm:right-[0.5rem] sm:min-h-[2.5rem] sm:min-w-[2.5rem]"
-              onClick={() => setShowUnverifiedNote(false)}
-              aria-label="Dismiss note"
-            >
-              <X className="h-[1.25rem] w-[1.25rem] sm:h-[1rem] sm:w-[1rem]" />
-            </Button>
-            {/* Vertically centered text with adequate spacing */}
-            <div className="flex items-center min-h-[2.75rem]">
-              <p className="text-base leading-relaxed text-yellow-800 dark:text-yellow-200 sm:text-sm sm:leading-normal">
-                <strong className="font-semibold">Note:</strong> Some rides show a "NIC Not Verified" badge. These rides are from users who haven't verified their NIC yet.
-                You can filter to show only verified rides using the dropdown above.
+      <div className="flex flex-col gap-[1rem] sm:gap-[1.25rem]">
+        {hasUnverifiedRides && filterType !== 'verified' && showUnverifiedNote && (
+          <Card
+            className="border-yellow-500/30 bg-yellow-500/5 relative group touch-pan-y select-none"
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+          >
+            <CardContent className="py-[1rem] pr-[3.5rem] sm:py-[1rem] sm:pr-[3rem]">
+              {/* Close button - always top-right */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-[0.5rem] right-[0.25rem] text-yellow-800 dark:text-yellow-200 hover:bg-yellow-500/20 min-h-[2.75rem] min-w-[2.75rem] sm:top-[0.5rem] sm:right-[0.5rem] sm:min-h-[2.5rem] sm:min-w-[2.5rem]"
+                onClick={() => setShowUnverifiedNote(false)}
+                aria-label="Dismiss note"
+              >
+                <X className="h-[1.25rem] w-[1.25rem] sm:h-[1rem] sm:w-[1rem]" />
+              </Button>
+              {/* Vertically centered text with adequate spacing */}
+              <div className="flex items-center min-h-[2.75rem]">
+                <p className="text-base leading-relaxed text-yellow-800 dark:text-yellow-200 sm:text-sm sm:leading-normal">
+                  <strong className="font-semibold">Note:</strong> Some rides show a "NIC Not Verified" badge. These rides are from users who haven't verified their NIC yet.
+                  You can filter to show only verified rides using the dropdown above.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        {showingDefaultFeed && (
+          <Card className="border-muted-foreground/20 bg-muted/5">
+            <CardContent className="py-[1rem] sm:py-[1.25rem] text-center px-[1rem] sm:px-[1.5rem]">
+              <p className="text-[0.8125rem] sm:text-[0.875rem] md:text-sm font-medium text-muted-foreground leading-relaxed">
+                No ride found matching "{searchQuery}". Showing default feed.
               </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-      {showingDefaultFeed && (
-        <Card className="border-muted-foreground/20 bg-muted/5">
-          <CardContent className="py-[1rem] sm:py-[1.25rem] text-center px-[1rem] sm:px-[1.5rem]">
-            <p className="text-[0.8125rem] sm:text-[0.875rem] md:text-sm font-medium text-muted-foreground leading-relaxed">
-              No ride found matching "{searchQuery}". Showing default feed.
-            </p>
-          </CardContent>
-        </Card>
-      )}
-      {showNoResultsMessage && (
-        <Card className="border-muted-foreground/20">
-          <CardContent className="py-[1rem] sm:py-[1.25rem] text-center px-[1rem] sm:px-[1.5rem] space-y-[0.75rem] sm:space-y-[1rem]">
-            <p className="text-[0.8125rem] sm:text-[0.875rem] md:text-sm text-muted-foreground leading-relaxed">
-              No results found matching your criteria. Showing all rides instead.
-            </p>
-            {(onClearCommunity || onClearFilters) && (
+            </CardContent>
+          </Card>
+        )}
+        {showNoResultsMessage && (
+          <Card className="border-muted-foreground/20">
+            <CardContent className="py-[1rem] sm:py-[1.25rem] text-center px-[1rem] sm:px-[1.5rem] space-y-[0.75rem] sm:space-y-[1rem]">
+              <p className="text-[0.8125rem] sm:text-[0.875rem] md:text-sm text-muted-foreground leading-relaxed">
+                No results found matching your criteria. Showing all rides instead.
+              </p>
+              {(onClearCommunity || onClearFilters) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (onClearFilters) {
+                      onClearFilters();
+                    } else if (onClearCommunity) {
+                      onClearCommunity();
+                    }
+                    handleFilterTypeChange('all');
+                  }}
+                >
+                  View All Rides
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        )}
+        {showViewAllButton && (onClearCommunity || onClearFilters) && (
+          <Card className="border-muted-foreground/20">
+            <CardContent className="py-[2rem] sm:py-[3rem] px-[1rem] sm:px-[1.5rem] flex flex-col items-center justify-center">
+              <p className="text-[0.875rem] sm:text-[0.95rem] md:text-base text-muted-foreground mb-[1rem] sm:mb-[1.25rem] leading-relaxed text-center">
+                No rides found in this community.
+              </p>
               <Button
                 variant="outline"
                 size="sm"
@@ -956,374 +1048,359 @@ const RidesList = ({
               >
                 View All Rides
               </Button>
-            )}
-          </CardContent>
-        </Card>
-      )}
-      {showViewAllButton && (onClearCommunity || onClearFilters) && (
-        <Card className="border-muted-foreground/20">
-          <CardContent className="py-[2rem] sm:py-[3rem] px-[1rem] sm:px-[1.5rem] flex flex-col items-center justify-center">
-            <p className="text-[0.875rem] sm:text-[0.95rem] md:text-base text-muted-foreground mb-[1rem] sm:mb-[1.25rem] leading-relaxed text-center">
-              No rides found in this community.
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                if (onClearFilters) {
-                  onClearFilters();
-                } else if (onClearCommunity) {
-                  onClearCommunity();
-                }
-                handleFilterTypeChange('all');
-              }}
-            >
-              View All Rides
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+            </CardContent>
+          </Card>
+        )}
 
-      {/* Show empty state if user has no rides when viewing "My Rides" */}
-      {showOnlyMyRides && displayRides.length === 0 && allRides.length > 0 && (
-        <Card>
-          <CardContent className="py-[3rem] sm:py-[4rem] px-[1rem] sm:px-[1.5rem] flex flex-col items-center justify-center">
-            <p className="text-muted-foreground mb-[1rem] sm:mb-[1.25rem] text-[0.875rem] sm:text-[0.95rem] md:text-base leading-relaxed text-center">
-              No rides have been created.
-            </p>
-            <CreateRideDialog preselectedCommunityId={selectedCommunity || undefined}>
-              <Button>Create Ride</Button>
-            </CreateRideDialog>
-          </CardContent>
-        </Card>
-      )}
+        {/* Show empty state if user has no rides when viewing "My Rides" */}
+        {showOnlyMyRides && displayRides.length === 0 && allRides.length > 0 && (
+          <Card>
+            <CardContent className="py-[3rem] sm:py-[4rem] px-[1rem] sm:px-[1.5rem] flex flex-col items-center justify-center">
+              <p className="text-muted-foreground mb-[1rem] sm:mb-[1.25rem] text-[0.875rem] sm:text-[0.95rem] md:text-base leading-relaxed text-center">
+                No rides have been created.
+              </p>
+              <CreateRideDialog preselectedCommunityId={selectedCommunity || undefined}>
+                <Button>Create Ride</Button>
+              </CreateRideDialog>
+            </CardContent>
+          </Card>
+        )}
 
-      {/* Mobile-first grid: single column on mobile, responsive grid on larger screens */}
-      {displayRides.length > 0 && (
-        <div className="grid gap-[1rem] sm:grid-cols-2 lg:grid-cols-3">
-          {displayRides.map((ride) => {
-            // Skip temporary optimistic rides that might not have all data
-            if (ride.id.startsWith('temp-')) {
-              return null;
-            }
-            return (
-              <Card key={ride.id} className="hover:shadow-medium transition-shadow flex flex-col h-full">
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-[0.5rem]">
-                    <div className="flex-1">
-                      {/* Mobile-first: wrap badges vertically on small screens */}
-                      <CardTitle className="flex items-center gap-[0.5rem] flex-wrap">
-                        <Badge variant={ride.type === 'offering' ? 'default' : 'secondary'}>
-                          {ride.type === 'offering' ? 'Offering Ride' : 'Seeking Ride'}
-                        </Badge>
-                        {ride.profiles && ride.profiles.nic_verified === true ? (
-                          <Badge variant="default" className="text-xs bg-green-600 hover:bg-green-700">
-                            ✓ NIC Verified
+        {/* Mobile-first grid: single column on mobile, responsive grid on larger screens */}
+        {displayRides.length > 0 && (
+          <div className="grid gap-[1rem] sm:grid-cols-2 lg:grid-cols-3">
+            {displayRides.map((ride) => {
+              // Skip temporary optimistic rides that might not have all data
+              if (ride.id.startsWith('temp-')) {
+                return null;
+              }
+              return (
+                <Card key={ride.id} className="hover:shadow-medium transition-shadow flex flex-col h-full">
+                  <CardHeader>
+                    <div className="flex items-start justify-between gap-[0.5rem]">
+                      <div className="flex-1">
+                        {/* Mobile-first: wrap badges vertically on small screens */}
+                        <CardTitle className="flex items-center gap-[0.5rem] flex-wrap">
+                          <Badge variant={ride.type === 'offering' ? 'default' : 'secondary'}>
+                            {ride.type === 'offering' ? 'Offering Ride' : 'Seeking Ride'}
                           </Badge>
-                        ) : ride.profiles && (
-                          <Badge variant="outline" className="text-xs">
-                            NIC Not Verified
-                          </Badge>
-                        )}
-                        {/* Gender Preference Badge */}
-                        {ride.gender_preference && (
-                          <Badge variant="outline" className="text-xs bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900 dark:text-purple-200 dark:border-purple-700">
-                            {ride.gender_preference === 'girls_only' ? '👧 Girls Only' : ride.gender_preference === 'boys_only' ? '👦 Boys Only' : '👥 Both'}
-                          </Badge>
-                        )}
-                        {/* Show Expired tag only in My Rides for expired rides */}
-                        {showOnlyMyRides && isRideExpired(ride) && !ride.is_archived && (
-                          <Badge variant="outline" className="text-xs bg-orange-100 text-orange-800 border-orange-300">
-                            Expired
-                          </Badge>
-                        )}
-                      </CardTitle>
-                      <CardDescription className="mt-[0.5rem] text-[clamp(0.95rem,1.6vw+0.55rem,1.0625rem)] sm:text-base leading-relaxed">
-                        <span>Posted by {ride.profiles?.full_name || 'Unknown'}</span>
-                      </CardDescription>
-                      <p className="text-[clamp(0.875rem,1.4vw+0.5rem,1rem)] text-muted-foreground mt-[0.375rem] leading-relaxed sm:text-sm sm:leading-normal">
-                        {formatDistanceToNow(new Date(ride.updated_at || ride.created_at), { addSuffix: true })}
-                      </p>
-                    </div>
-                    {/* Touch-friendly action buttons */}
-                    {currentUserId === ride.user_id && (
-                      <div className="flex gap-[0.25rem]">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setEditingRide(ride)}
-                          className="text-primary hover:text-primary"
-                        >
-                          <Pencil className="w-[1.25rem] h-[1.25rem] sm:w-[1rem] sm:h-[1rem]" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(ride.id)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="w-[1.25rem] h-[1.25rem] sm:w-[1rem] sm:h-[1rem]" />
-                        </Button>
+                          {ride.profiles && ride.profiles.nic_verified === true ? (
+                            <Badge variant="default" className="text-xs bg-green-600 hover:bg-green-700">
+                              ✓ NIC Verified
+                            </Badge>
+                          ) : ride.profiles && (
+                            <Badge variant="outline" className="text-xs">
+                              NIC Not Verified
+                            </Badge>
+                          )}
+                          {/* Gender Preference Badge */}
+                          {ride.gender_preference && (
+                            <Badge variant="outline" className="text-xs bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900 dark:text-purple-200 dark:border-purple-700">
+                              {ride.gender_preference === 'girls_only' ? '👧 Girls Only' : ride.gender_preference === 'boys_only' ? '👦 Boys Only' : '👥 Both'}
+                            </Badge>
+                          )}
+                          {/* Show Expired tag only in My Rides for expired rides */}
+                          {showOnlyMyRides && isRideExpired(ride) && !ride.is_archived && (
+                            <Badge variant="outline" className="text-xs bg-orange-100 text-orange-800 border-orange-300">
+                              Expired
+                            </Badge>
+                          )}
+                          {/* Expiration countdown badge */}
+                          {!showOnlyMyRides && !isRideExpired(ride) && getTimeRemaining(ride).minutes <= 30 && (
+                            <Badge variant="outline" className={`text-xs ${getTimeRemaining(ride).minutes <= 5 ? 'bg-red-100 text-red-800 border-red-300' : 'bg-yellow-100 text-yellow-800 border-yellow-300'}`}>
+                              ⏱️ Expires in {getTimeRemaining(ride).minutes}m
+                            </Badge>
+                          )}
+                        </CardTitle>
+                        <CardDescription className="mt-[0.5rem] text-[clamp(0.95rem,1.6vw+0.55rem,1.0625rem)] sm:text-base leading-relaxed">
+                          <span>Posted by {ride.profiles?.full_name || 'Unknown'}</span>
+                        </CardDescription>
+                        <p className="text-[clamp(0.875rem,1.4vw+0.5rem,1rem)] text-muted-foreground mt-[0.375rem] leading-relaxed sm:text-sm sm:leading-normal">
+                          {formatDistanceToNow(new Date(ride.updated_at || ride.created_at), { addSuffix: true })}
+                        </p>
                       </div>
-                    )}
-                  </div>
-                </CardHeader>
-                {/* Mobile-first: adequate spacing for readability */}
-                <CardContent className="flex flex-col gap-[0.75rem] flex-1">
-                  {/* Expired ride banner with reactivate switch */}
-                  {isRideExpired(ride) && !ride.is_archived && currentUserId === ride.user_id && showOnlyMyRides && (
-                    <div className="bg-orange-50 border border-orange-200 rounded-md p-3 text-sm text-orange-800">
-                      <div className="flex items-center justify-between">
-                        <p className="font-medium">⏰ This ride has expired</p>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs">Reactivate</span>
-                          <Switch
-                            checked={reactivatingRides.has(ride.id)}
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                handleExtendRide(ride);
-                              }
-                            }}
-                            disabled={reactivatingRides.has(ride.id)}
-                          />
+                      {/* Touch-friendly action buttons */}
+                      {currentUserId === ride.user_id && (
+                        <div className="flex gap-[0.25rem]">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setEditingRide(ride)}
+                            className="text-primary hover:text-primary"
+                          >
+                            <Pencil className="w-[1.25rem] h-[1.25rem] sm:w-[1rem] sm:h-[1rem]" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(ride.id)}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="w-[1.25rem] h-[1.25rem] sm:w-[1rem] sm:h-[1rem]" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </CardHeader>
+                  {/* Mobile-first: adequate spacing for readability */}
+                  <CardContent className="flex flex-col gap-[0.75rem] flex-1">
+                    {/* Expired ride banner with reactivate switch */}
+                    {isRideExpired(ride) && !ride.is_archived && currentUserId === ride.user_id && showOnlyMyRides && (
+                      <div className="bg-orange-50 border border-orange-200 rounded-md p-3 text-sm text-orange-800">
+                        <div className="flex items-center justify-between">
+                          <p className="font-medium">⏰ This ride has expired</p>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs">Reactivate</span>
+                            <div className={switchStates.get(ride.id) ? 'bg-green-100 rounded-full p-1' : ''}>
+                              <Switch
+                                checked={switchStates.get(ride.id) || false}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    handleExtendRide(ride);
+                                  }
+                                }}
+                                disabled={reactivatingRides.has(ride.id)}
+                                className={switchStates.get(ride.id) ? '[&_span]:bg-green-500' : ''}
+                              />
+                            </div>
+                          </div>
                         </div>
                       </div>
+                    )}
+                    {/* Archived ride banner */}
+                    {ride.is_archived && currentUserId === ride.user_id && showOnlyMyRides && (
+                      <div className="bg-orange-50 border border-orange-200 rounded-md p-3 text-sm text-orange-800 space-y-2">
+                        <p className="font-medium">📦 This ride is archived</p>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleExtendRide(ride)}
+                            className="flex-1 text-xs"
+                          >
+                            <RefreshCw className="w-3 h-3 mr-1" />
+                            Reactivate
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-[0.5rem] text-[clamp(0.95rem,1.8vw+0.55rem,1.125rem)] flex-wrap sm:text-base">
+                      <MapPin className="w-[1.25rem] h-[1.25rem] text-primary shrink-0 sm:w-[1rem] sm:h-[1rem]" />
+                      <span className="font-medium">{ride.start_location}</span>
+                      <span className="text-muted-foreground">→</span>
+                      <span className="font-medium">{ride.end_location}</span>
                     </div>
-                  )}
-                  {/* Archived ride banner */}
-                  {ride.is_archived && currentUserId === ride.user_id && showOnlyMyRides && (
-                    <div className="bg-orange-50 border border-orange-200 rounded-md p-3 text-sm text-orange-800 space-y-2">
-                      <p className="font-medium">📦 This ride is archived</p>
-                      <div className="flex gap-2">
+                    <div className="flex items-center gap-[0.75rem] text-[clamp(0.9rem,1.5vw+0.5rem,1.05rem)] text-muted-foreground flex-wrap sm:text-sm">
+                      <div className="flex items-center gap-[0.375rem]">
+                        <Calendar className="w-[1.25rem] h-[1.25rem] shrink-0 sm:w-[1rem] sm:h-[1rem]" />
+                        {format(new Date(ride.ride_date), 'MMM dd, yyyy')}
+                      </div>
+                    </div>
+                    {ride.seats_available && (
+                      <div className="flex items-center gap-[0.375rem] text-[clamp(0.9rem,1.4vw+0.5rem,1.05rem)] sm:text-sm">
+                        <Users className="w-[1.25rem] h-[1.25rem] text-accent shrink-0 sm:w-[1rem] sm:h-[1rem]" />
+                        <span>{ride.seats_available} seats available</span>
+                      </div>
+                    )}
+                    {ride.description && (
+                      (() => {
+                        const preview = ride.description.length > 80
+                          ? `${ride.description.slice(0, 80)}…`
+                          : ride.description;
+                        return (
+                          <div className="flex flex-col gap-1">
+                            <p className="text-[clamp(0.95rem,1.4vw+0.55rem,1rem)] text-muted-foreground leading-relaxed sm:text-sm sm:leading-normal line-clamp-1">
+                              {preview}
+                            </p>
+                            <Button
+                              variant="link"
+                              size="sm"
+                              className="px-0 w-fit -mt-1 text-sm"
+                              onClick={() => setDescriptionRide(ride)}
+                            >
+                              See more
+                            </Button>
+                          </div>
+                        );
+                      })()
+                    )}
+                    {ride.recurring_days && ride.recurring_days.length > 0 && (
+                      <div className="flex flex-wrap gap-1 items-center">
+                        <span className="text-xs font-medium">Recurring:</span>
+                        {ride.recurring_days.map((day) => (
+                          <Badge key={day} variant="outline" className="text-xs">
+                            {day.slice(0, 3)}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                  <CardFooter className="flex flex-wrap gap-[0.5rem] w-full">
+                    {ride.phone && (
+                      <>
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleExtendRide(ride)}
-                          className="flex-1 text-xs"
-                        >
-                          <RefreshCw className="w-3 h-3 mr-1" />
-                          Reactivate
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-[0.5rem] text-[clamp(0.95rem,1.8vw+0.55rem,1.125rem)] flex-wrap sm:text-base">
-                    <MapPin className="w-[1.25rem] h-[1.25rem] text-primary shrink-0 sm:w-[1rem] sm:h-[1rem]" />
-                    <span className="font-medium">{ride.start_location}</span>
-                    <span className="text-muted-foreground">→</span>
-                    <span className="font-medium">{ride.end_location}</span>
-                  </div>
-                  <div className="flex items-center gap-[0.75rem] text-[clamp(0.9rem,1.5vw+0.5rem,1.05rem)] text-muted-foreground flex-wrap sm:text-sm">
-                    <div className="flex items-center gap-[0.375rem]">
-                      <Calendar className="w-[1.25rem] h-[1.25rem] shrink-0 sm:w-[1rem] sm:h-[1rem]" />
-                      {format(new Date(ride.ride_date), 'MMM dd, yyyy')}
-                    </div>
-                  </div>
-                  {ride.seats_available && (
-                    <div className="flex items-center gap-[0.375rem] text-[clamp(0.9rem,1.4vw+0.5rem,1.05rem)] sm:text-sm">
-                      <Users className="w-[1.25rem] h-[1.25rem] text-accent shrink-0 sm:w-[1rem] sm:h-[1rem]" />
-                      <span>{ride.seats_available} seats available</span>
-                    </div>
-                  )}
-                  {ride.description && (
-                    (() => {
-                      const preview = ride.description.length > 80
-                        ? `${ride.description.slice(0, 80)}…`
-                        : ride.description;
-                      return (
-                        <div className="flex flex-col gap-1">
-                          <p className="text-[clamp(0.95rem,1.4vw+0.55rem,1rem)] text-muted-foreground leading-relaxed sm:text-sm sm:leading-normal line-clamp-1">
-                            {preview}
-                          </p>
-                          <Button
-                            variant="link"
-                            size="sm"
-                            className="px-0 w-fit -mt-1 text-sm"
-                            onClick={() => setDescriptionRide(ride)}
-                          >
-                            See more
-                          </Button>
-                        </div>
-                      );
-                    })()
-                  )}
-                  {ride.recurring_days && ride.recurring_days.length > 0 && (
-                    <div className="flex flex-wrap gap-1 items-center">
-                      <span className="text-xs font-medium">Recurring:</span>
-                      {ride.recurring_days.map((day) => (
-                        <Badge key={day} variant="outline" className="text-xs">
-                          {day.slice(0, 3)}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-                <CardFooter className="flex flex-wrap gap-[0.5rem] w-full">
-                  {ride.phone && (
-                    <>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 min-w-[48%] sm:min-w-0"
-                        onClick={() =>
-                          ensureProfileComplete(() =>
-                            openWhatsApp(
-                              ride.phone!,
-                              `Hi, I'm interested in your ride from ${ride.start_location} to ${ride.end_location}`
+                          className="flex-1 min-w-[48%] sm:min-w-0"
+                          onClick={() =>
+                            ensureProfileComplete(() =>
+                              openWhatsApp(
+                                ride.phone!,
+                                `Hi, I'm interested in your ride from ${ride.start_location} to ${ride.end_location}`
+                              )
                             )
-                          )
-                        }
-                      >
-                        <MessageCircle className="w-4 h-4 mr-2" />
-                        WhatsApp
-                      </Button>
+                          }
+                        >
+                          <MessageCircle className="w-4 h-4 mr-2" />
+                          WhatsApp
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 min-w-[48%] sm:min-w-0"
+                          onClick={() =>
+                            ensureProfileComplete(() => window.open(`tel:${ride.phone}`, '_self'))
+                          }
+                        >
+                          <Phone className="w-4 h-4 mr-2" />
+                          Call
+                        </Button>
+                      </>
+                    )}
+                    {currentUserId !== ride.user_id && (
                       <Button
                         variant="outline"
                         size="sm"
                         className="flex-1 min-w-[48%] sm:min-w-0"
-                        onClick={() =>
-                          ensureProfileComplete(() => window.open(`tel:${ride.phone}`, '_self'))
-                        }
+                        onClick={() => handleReviewButtonClick(ride)}
                       >
-                        <Phone className="w-4 h-4 mr-2" />
-                        Call
+                        <Star className="w-4 h-4 mr-2" />
+                        Review
                       </Button>
-                    </>
+                    )}
+                  </CardFooter>
+                  {actionsDisabled && (
+                    <p className="px-6 pb-2 text-xs font-semibold text-amber-500">
+                      {getActionsDisabledMessage()}
+                    </p>
                   )}
-                  {currentUserId !== ride.user_id && (
+                  <div className="px-6 pb-4">
                     <Button
                       variant="outline"
                       size="sm"
-                      className="flex-1 min-w-[48%] sm:min-w-0"
-                      onClick={() => handleReviewButtonClick(ride)}
+                      className="w-full"
+                      onClick={() => {
+                        if (!isAuthenticated) {
+                          setShowAuthModal(true);
+                          return;
+                        }
+                        setViewingReviewsRide(ride);
+                      }}
                     >
-                      <Star className="w-4 h-4 mr-2" />
-                      Review
+                      View Reviews
                     </Button>
-                  )}
-                </CardFooter>
-                {actionsDisabled && (
-                  <p className="px-6 pb-2 text-xs font-semibold text-amber-500">
-                    {getActionsDisabledMessage()}
-                  </p>
-                )}
-                <div className="px-6 pb-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => {
-                      if (!isAuthenticated) {
-                        setShowAuthModal(true);
-                        return;
-                      }
-                      setViewingReviewsRide(ride);
-                    }}
-                  >
-                    View Reviews
-                  </Button>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
-      )}
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
 
-      {editingRide && (
-        <CreateRideDialog
-          rideToEdit={editingRide}
-          open={!!editingRide}
-          onOpenChange={(open) => {
-            if (!open) {
-              setEditingRide(null);
-            }
-          }}
-          onRideUpdated={handleRideUpdated}
-        />
-      )}
-
-      {reviewingRide && (
-        <ReviewDialog
-          open={!!reviewingRide}
-          onOpenChange={(open) => {
-            if (!open) {
-              setReviewingRide(null);
-              setExistingReview(null);
-            }
-          }}
-          rideId={reviewingRide.id}
-          driverId={reviewingRide.user_id}
-          existingReview={existingReview}
-        />
-      )}
-
-      <ProfileDialog
-        open={profileDialogOpen}
-        onOpenChange={setProfileDialogOpen}
-        completionMessage="Please complete your profile to contact or review rides."
-        onProfileUpdate={() => {
-          setProfileDialogOpen(false);
-          getCurrentUser();
-        }}
-      />
-
-      {viewingReviewsRide && (
-        <Dialog open={!!viewingReviewsRide} onOpenChange={(open) => !open && setViewingReviewsRide(null)}>
-          <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Reviews for Ride</DialogTitle>
-              <DialogDescription>
-                {viewingReviewsRide.start_location} to {viewingReviewsRide.end_location}
-              </DialogDescription>
-            </DialogHeader>
-            <ReviewsList rideId={viewingReviewsRide.id} />
-          </DialogContent>
-        </Dialog>
-      )}
-    </div>
-
-    {/* Full description modal */}
-    <Dialog open={!!descriptionRide} onOpenChange={(open) => !open && setDescriptionRide(null)}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Ride Description</DialogTitle>
-         
-        </DialogHeader>
-        <div className=" whitespace-pre-wrap text-sm sm:text-base">
-          {descriptionRide?.description}
-        </div>
-      </DialogContent>
-    </Dialog>
-
-    {/* Auth Modal - shown when unauthenticated user tries to interact with rides */}
-    <Dialog open={showAuthModal} onOpenChange={setShowAuthModal}>
-      <DialogContent className="animate-scale-in">
-        <DialogHeader>
-          <DialogTitle>Sign In Required</DialogTitle>
-          <DialogDescription>
-            You need to sign in to contact, review, or view reviews for rides. Create an account or sign in to continue.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col gap-3 pt-4">
-          <Button
-            onClick={() => {
-              router.push('/auth');
-              setShowAuthModal(false);
+        {editingRide && (
+          <CreateRideDialog
+            rideToEdit={editingRide}
+            open={!!editingRide}
+            onOpenChange={(open) => {
+              if (!open) {
+                setEditingRide(null);
+              }
             }}
-            className="w-full"
-          >
-            Sign In / Sign Up
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => setShowAuthModal(false)}
-            className="w-full"
-          >
-            Cancel
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+            onRideUpdated={handleRideUpdated}
+          />
+        )}
+
+        {reviewingRide && (
+          <ReviewDialog
+            open={!!reviewingRide}
+            onOpenChange={(open) => {
+              if (!open) {
+                setReviewingRide(null);
+                setExistingReview(null);
+              }
+            }}
+            rideId={reviewingRide.id}
+            driverId={reviewingRide.user_id}
+            existingReview={existingReview}
+          />
+        )}
+
+        <ProfileDialog
+          open={profileDialogOpen}
+          onOpenChange={setProfileDialogOpen}
+          completionMessage="Please complete your profile to contact or review rides."
+          onProfileUpdate={() => {
+            setProfileDialogOpen(false);
+            getCurrentUser();
+          }}
+        />
+
+        {viewingReviewsRide && (
+          <Dialog open={!!viewingReviewsRide} onOpenChange={(open) => !open && setViewingReviewsRide(null)}>
+            <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Reviews for Ride</DialogTitle>
+                <DialogDescription>
+                  {viewingReviewsRide.start_location} to {viewingReviewsRide.end_location}
+                </DialogDescription>
+              </DialogHeader>
+              <ReviewsList rideId={viewingReviewsRide.id} />
+            </DialogContent>
+          </Dialog>
+        )}
+      </div>
+
+      {/* Full description modal */}
+      <Dialog open={!!descriptionRide} onOpenChange={(open) => !open && setDescriptionRide(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ride Description</DialogTitle>
+
+          </DialogHeader>
+          <div className=" whitespace-pre-wrap text-sm sm:text-base">
+            {descriptionRide?.description}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Auth Modal - shown when unauthenticated user tries to interact with rides */}
+      <Dialog open={showAuthModal} onOpenChange={setShowAuthModal}>
+        <DialogContent className="animate-scale-in">
+          <DialogHeader>
+            <DialogTitle>Sign In Required</DialogTitle>
+            <DialogDescription>
+              You need to sign in to contact, review, or view reviews for rides. Create an account or sign in to continue.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 pt-4">
+            <Button
+              onClick={() => {
+                router.push('/auth');
+                setShowAuthModal(false);
+              }}
+              className="w-full"
+            >
+              Sign In / Sign Up
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setShowAuthModal(false)}
+              className="w-full"
+            >
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
