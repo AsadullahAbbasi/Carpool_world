@@ -117,11 +117,11 @@ export async function PUT(
       try {
         const user = await User.findById(request.requestedBy).lean();
         const profile = await Profile.findOne({ userId: request.requestedBy }).lean();
-        
+
         if (user && user.email) {
           await sendCommunityApprovalEmail(
             user.email,
-            profile?.fullName || user.name || 'User',
+            profile?.fullName || 'User',
             request.name
           );
         }
@@ -148,11 +148,11 @@ export async function PUT(
       try {
         const user = await User.findById(request.requestedBy).lean();
         const profile = await Profile.findOne({ userId: request.requestedBy }).lean();
-        
+
         if (user && user.email) {
           await sendCommunityRejectionEmail(
             user.email,
-            profile?.fullName || user.name || 'User',
+            profile?.fullName || 'User',
             request.name,
             data.rejectionReason || 'Your community request does not meet our requirements at this time.'
           );
