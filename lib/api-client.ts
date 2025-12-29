@@ -306,6 +306,7 @@ export const ridesApi = {
     phone?: string;
     expiresAt: string;
     isArchived?: boolean;
+    emailSent?: boolean;
     communityIds?: string[];
     recurringDays?: string[];
   }>) => {

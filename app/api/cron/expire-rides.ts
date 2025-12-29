@@ -61,7 +61,8 @@ export async function GET(req: NextRequest) {
     let emailsSent = 0;
     let emailsFailed = 0;
 
-    for (const ride of expiredRides) {
+    // Process emails concurrently
+    const emailPromises = expiredRides.map(async (ride) => {
       try {
         // Fetch user info
         const user = await User.findById(ride.userId).lean();
@@ -69,7 +70,7 @@ export async function GET(req: NextRequest) {
 
         if (!user || !user.email) {
           console.warn(`No email found for user ${ride.userId}`);
-          continue;
+          return { success: false, id: ride._id, error: 'No email found' };
         }
 
         // Send email
@@ -91,12 +92,26 @@ export async function GET(req: NextRequest) {
           { $set: { emailSent: true, emailSentAt: new Date() } }
         );
 
-        emailsSent++;
+        return { success: true, id: ride._id };
       } catch (error) {
         console.error(`Failed to send email for ride ${ride._id}:`, error);
+        return { success: false, id: ride._id, error };
+      }
+    });
+
+    const results = await Promise.allSettled(emailPromises);
+
+    results.forEach((result) => {
+      if (result.status === 'fulfilled') {
+        if (result.value.success) {
+          emailsSent++;
+        } else {
+          emailsFailed++;
+        }
+      } else {
         emailsFailed++;
       }
-    }
+    });
 
     return NextResponse.json({
       success: true,

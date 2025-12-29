@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import { Profile } from '@/models/Profile';
+import { User } from '@/models/User';
 
 export const dynamic = 'force-dynamic';
 
@@ -76,7 +77,7 @@ export async function GET(req: NextRequest) {
         if (isClosed || !ridesCollection) return;
         try {
           const now = new Date();
-          
+
           // Find rides that have expired but aren't archived yet
           const expiredRides = await ridesCollection.find({
             expiresAt: { $lte: now },
@@ -88,7 +89,7 @@ export async function GET(req: NextRequest) {
             // Only notify once per ride expiration
             if (!trackedExpiredRides.has(rideId)) {
               trackedExpiredRides.add(rideId);
-              
+
               // Fetch profile and user for the ride
               const profile = await Profile.findOne({ userId: ride.userId }).lean();
               const user = await User.findById(ride.userId).lean();
@@ -137,7 +138,7 @@ export async function GET(req: NextRequest) {
       try {
         // Connect to MongoDB
         const mongoose = await connectDB();
-        
+
         // Get the native MongoDB client from Mongoose
         const db = mongoose.connection.db;
         if (!db) {
@@ -176,7 +177,7 @@ export async function GET(req: NextRequest) {
             if (isClosed) return;
 
             const operationType = change.operationType;
-            
+
             // Handle delete operations
             if (operationType === 'delete') {
               // For delete operations, we only have the documentKey
@@ -190,11 +191,11 @@ export async function GET(req: NextRequest) {
               }
               return;
             }
-            
+
             // Handle insert and update operations
             if (operationType === 'insert' || operationType === 'update') {
               let rideDocument = change.fullDocument;
-              
+
               // If no fullDocument in update, try to get it from documentKey
               if (!rideDocument && change.documentKey) {
                 rideDocument = await ridesCollection.findOne({ _id: change.documentKey._id });

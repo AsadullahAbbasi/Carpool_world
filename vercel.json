@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/expire-rides",
-      "schedule": "0 0 * * *"
+      "schedule": "0 12 * * *"
     }
   ]
 }

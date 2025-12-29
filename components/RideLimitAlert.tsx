@@ -10,6 +10,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { X } from 'lucide-react';
 
 interface RideLimitAlertProps {
     open: boolean;
@@ -30,6 +31,13 @@ export default function RideLimitAlert({
         return (
             <AlertDialog open={open} onOpenChange={onOpenChange}>
                 <AlertDialogContent>
+                    <button
+                        onClick={() => onOpenChange(false)}
+                        className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+                    >
+                        <X className="h-4 w-4" />
+                        <span className="sr-only">Close</span>
+                    </button>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Active Ride Already Exists</AlertDialogTitle>
                         <AlertDialogDescription>
@@ -52,6 +60,13 @@ export default function RideLimitAlert({
     return (
         <AlertDialog open={open} onOpenChange={onOpenChange}>
             <AlertDialogContent>
+                <button
+                    onClick={() => onOpenChange(false)}
+                    className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+                >
+                    <X className="h-4 w-4" />
+                    <span className="sr-only">Close</span>
+                </button>
                 <AlertDialogHeader>
                     <AlertDialogTitle>One Ride Limit</AlertDialogTitle>
                     <AlertDialogDescription className="space-y-3">
@@ -59,17 +74,14 @@ export default function RideLimitAlert({
                             You can only have <strong>one ride at a time</strong>. You currently have an expired ride in your account.
                         </p>
                         <p>
-                            <strong>✅ Recommended:</strong> Edit or reactivate your existing ride to update the details (location, time, etc.).
-                        </p>
-                        <p className="text-muted-foreground text-sm">
-                            <strong>Alternative:</strong> Create a new ride (your expired ride will be replaced).
+                            <strong>✅ Recommended:</strong> Go to My Rides tab to edit, reactivate, or delete your existing ride before creating a new one.
                         </p>
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel onClick={onProceed}>Create New Ride</AlertDialogCancel>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
                     <AlertDialogAction onClick={onNavigateToMyRides}>
-                        Edit/Reactivate Ride
+                        Go to My Rides
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>

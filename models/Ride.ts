@@ -13,6 +13,7 @@ export interface IRide extends Document {
   phone?: string;
   expiresAt: Date;
   isArchived?: boolean;
+  emailSent?: boolean;
   communityIds?: string[];
   recurringDays?: string[];
   createdAt: Date;
@@ -65,6 +66,10 @@ const rideSchema = new Schema<IRide>(
       type: Boolean,
       default: false,
       index: true,
+    },
+    emailSent: {
+      type: Boolean,
+      default: false,
     },
     communityIds: [{
       type: String,

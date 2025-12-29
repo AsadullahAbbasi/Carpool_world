@@ -80,7 +80,7 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
   const [internalOpen, setInternalOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  
+
   const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
   const setOpen = (value: boolean) => {
     // Check authentication when trying to open
@@ -88,7 +88,7 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
       setShowAuthModal(true);
       return;
     }
-    
+
     if (onOpenChange) {
       onOpenChange(value);
     } else {
@@ -357,89 +357,81 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
       return;
     }
 
-    // Reset form data for new ride creation (do this immediately)
-    const freshFormData = getInitialFormData();
-    // Auto-select preselected community if provided
-    if (preselectedCommunityId) {
-      freshFormData.community_ids = [preselectedCommunityId];
-    }
-    setFormData(freshFormData);
-    setInitialFormData(freshFormData);
-    setHasUnsavedChanges(false);
+    // Run all checks BEFORE opening the modal to prevent flicker
+    try {
+      // Run checks in parallel
+      const [authData, rideStatus] = await Promise.all([
+        authApi.getCurrentUser().catch(() => null),
+        ridesApi.checkRides().catch(() => null),
+      ]);
 
-    // Open modal immediately for better UX (optimistic UI)
-    setOpen(true);
-
-    // Run checks in parallel after opening the modal
-    // This prevents blocking the UI while checks are happening
-    Promise.all([
-      // Check authentication
-      authApi.getCurrentUser().catch(() => null),
-      // Check for existing rides
-      ridesApi.checkRides().catch(() => null),
-    ]).then(([authData, rideStatus]) => {
-      // Handle auth check
+      // Handle auth check first
       const authed = !!(authData && (authData as any).user);
       setIsAuthenticated(authed);
-      
+
       if (!authed) {
-        // Close the create ride dialog and show auth modal
-        setOpen(false);
         setShowAuthModal(true);
         return;
       }
 
-      // Only proceed with other checks if authenticated
       // Handle ride status check
       if (rideStatus) {
         const status = rideStatus as any;
         if (status.hasActiveRide) {
-          // Close the create ride dialog and show active ride alert
-          setOpen(false);
           setActiveRideAlertOpen(true);
           return;
         }
         if (status.hasExpiredRide) {
-          // Close the create ride dialog and show expired ride alert
-          setOpen(false);
           setExpiredRideAlertOpen(true);
           return;
         }
       }
 
-      // Check profile completion - reuse authData to avoid another API call
-      try {
-        const userData = authData as any;
-        const profile = userData?.profile;
+      // Check profile completion
+      const userData = authData as any;
+      const profile = userData?.profile;
 
-        if (profile) {
-          const missingFields: string[] = [];
-          if (!profile.fullName) missingFields.push('Full Name');
-          if (!profile.phone) missingFields.push('Phone Number');
-          if (!profile.gender) missingFields.push('Gender');
-          if (profile.gender !== 'female' && !profile.avatarUrl) {
-            missingFields.push('Profile Picture');
-          }
-
-          if (missingFields.length > 0) {
-            const message = `To ensure trust and safety in our community, please complete your profile before creating a ride. Missing: ${missingFields.join(', ')}.`;
-            setProfileCompletionMessage(message);
-            // Close the create ride dialog and show profile dialog
-            setOpen(false);
-            setShowProfileDialog(true);
-            return;
-          }
+      if (profile) {
+        const missingFields: string[] = [];
+        if (!profile.fullName) missingFields.push('Full Name');
+        if (!profile.phone) missingFields.push('Phone Number');
+        if (!profile.gender) missingFields.push('Gender');
+        if (profile.gender !== 'female' && !profile.avatarUrl) {
+          missingFields.push('Profile Picture');
         }
-        // Profile is complete, modal is already open, so we're good
-      } catch (error) {
-        console.error('Error checking profile:', error);
-        // If profile check fails, allow user to proceed (fail open)
+
+        if (missingFields.length > 0) {
+          const message = `To ensure trust and safety in our community, please complete your profile before creating a ride. Missing: ${missingFields.join(', ')}.`;
+          setProfileCompletionMessage(message);
+          setShowProfileDialog(true);
+          return;
+        }
       }
-    }).catch((error) => {
+
+      // All checks passed - now prepare and open the form
+      const freshFormData = getInitialFormData();
+      // Auto-select preselected community if provided
+      if (preselectedCommunityId) {
+        freshFormData.community_ids = [preselectedCommunityId];
+      }
+      setFormData(freshFormData);
+      setInitialFormData(freshFormData);
+      setHasUnsavedChanges(false);
+
+      // Open modal only after all checks pass
+      setOpen(true);
+    } catch (error) {
       console.error('Error in handleTriggerClick checks:', error);
-      // If any check fails, allow user to proceed (fail open)
-      // Modal is already open
-    });
+      // If any check fails, still try to open the modal (fail open)
+      const freshFormData = getInitialFormData();
+      if (preselectedCommunityId) {
+        freshFormData.community_ids = [preselectedCommunityId];
+      }
+      setFormData(freshFormData);
+      setInitialFormData(freshFormData);
+      setHasUnsavedChanges(false);
+      setOpen(true);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -669,7 +661,7 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
         zodErrors.forEach((err: any) => {
           const fieldName = err.path?.join('.') || '';
           const errorMsg = err.message || '';
-          
+
           // Map schema field names to form field names
           if (fieldName === 'startLocation') fieldErrors.start_location = errorMsg;
           else if (fieldName === 'endLocation') fieldErrors.end_location = errorMsg;
@@ -679,7 +671,7 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
           else if (fieldName === 'genderPreference') fieldErrors.gender_preference = errorMsg;
           else if (fieldName === 'seatsAvailable') fieldErrors.seats_available = errorMsg;
           else if (fieldName === 'description') fieldErrors.description = errorMsg;
-          
+
           errorMessages.push(`${fieldName}: ${errorMsg}`);
         });
 
@@ -739,10 +731,6 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
         onOpenChange={setExpiredRideAlertOpen}
         type="expired"
         onNavigateToMyRides={handleNavigateToMyRides}
-        onProceed={() => {
-          setExpiredRideAlertOpen(false);
-          setOpen(true);
-        }}
       />
 
       {children ? (
