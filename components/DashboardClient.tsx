@@ -281,6 +281,7 @@ function DashboardContent({
                     <SelectContent
                       position="popper"
                       side="bottom"
+                      className='max-h-[200px] lg:max-h-[250px] overflow-y-scroll'
                       align="start"
                       sideOffset={4}
                       avoidCollisions={false}
@@ -302,9 +303,10 @@ function DashboardContent({
                     <SelectContent
                       position="popper"
                       side="bottom"
-                      align="start"
+                      align="center"
                       sideOffset={4}
                       avoidCollisions={false}
+                      className='max-h-[200px] lg:max-h-[250px] overflow-y-scroll'
                     >
                       <SelectItem value="all">All Rides</SelectItem>
                       <SelectItem value="verified">Verified Only</SelectItem>
