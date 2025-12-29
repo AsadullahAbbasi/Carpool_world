@@ -72,11 +72,9 @@ const DUMMY_COMMUNITIES = [
 
 export default function LandingPage() {
   const router = useRouter();
-  const [checkingAuth, setCheckingAuth] = useState(true);
   // Always show dummy data - no database fetching
   const featuredRides = DUMMY_RIDES;
   const communities = DUMMY_COMMUNITIES;
-
   useEffect(() => {
     let cancelled = false;
 
@@ -85,13 +83,10 @@ export default function LandingPage() {
         const data: any = await authApi.getCurrentUser();
         if (!cancelled && data?.user) {
           router.replace('/dashboard');
-          return;
         }
       } catch {
-        // not logged in
+        // not logged in, just stay on landing page
       }
-
-      if (!cancelled) setCheckingAuth(false);
     };
 
     // Check on mount
@@ -112,10 +107,6 @@ export default function LandingPage() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [router]);
-
-  if (checkingAuth) {
-    return <div className="min-h-screen" />;
-  }
 
   return (
     <div
