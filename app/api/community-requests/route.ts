@@ -133,15 +133,43 @@ export const GET = async (req: NextRequest) => {
 
       const requestsWithUserInfo = await Promise.all(
         requests.map(async (req: any) => {
-          const user = await User.findById(req.requestedBy);
-          const profile = user ? await Profile.findOne({ userId: user._id.toString() }) : null;
+          let user = null;
+          let profile = null;
+
+          try {
+            if (req.requestedBy === 'admin') {
+              // Special case for admin requester
+              return {
+                id: req._id.toString(),
+                name: req.name,
+                description: req.description,
+                status: req.status,
+                requestedBy: req.requestedBy,
+                requestedByEmail: process.env.ADMIN_EMAIL || 'admin@example.com',
+                requestedByUsername: 'Admin',
+                reviewedBy: req.reviewedBy,
+                reviewedAt: req.reviewedAt,
+                rejectionReason: req.rejectionReason,
+                createdAt: req.createdAt,
+                updatedAt: req.updatedAt,
+              };
+            }
+
+            // Only try findById if it looks like a valid ObjectId string (24-char hex)
+            if (req.requestedBy && /^[0-9a-fA-F]{24}$/.test(req.requestedBy)) {
+              user = await User.findById(req.requestedBy);
+              profile = user ? await Profile.findOne({ userId: user._id.toString() }) : null;
+            }
+          } catch (err) {
+            console.error(`Error fetching user info for request ${req._id}:`, err);
+          }
 
           return {
             id: req._id.toString(),
             name: req.name,
             description: req.description,
             status: req.status,
-            requestedBy: req.requestedBy,
+            requestedBy: req.requestedBy || 'Unknown',
             requestedByEmail: user?.email || 'Unknown',
             requestedByUsername: profile?.fullName || user?.email || 'Unknown',
             reviewedBy: req.reviewedBy,
@@ -173,15 +201,43 @@ export const GET = async (req: NextRequest) => {
     // Populate user information
     const requestsWithUserInfo = await Promise.all(
       requests.map(async (req: any) => {
-        const user = await User.findById(req.requestedBy);
-        const profile = user ? await Profile.findOne({ userId: user._id.toString() }) : null;
+        let user = null;
+        let profile = null;
+
+        try {
+          if (req.requestedBy === 'admin') {
+            // Special case for admin requester
+            return {
+              id: req._id.toString(),
+              name: req.name,
+              description: req.description,
+              status: req.status,
+              requestedBy: req.requestedBy,
+              requestedByEmail: process.env.ADMIN_EMAIL || 'admin@example.com',
+              requestedByUsername: 'Admin',
+              reviewedBy: req.reviewedBy,
+              reviewedAt: req.reviewedAt,
+              rejectionReason: req.rejectionReason,
+              createdAt: req.createdAt,
+              updatedAt: req.updatedAt,
+            };
+          }
+
+          // Only try findById if it looks like a valid ObjectId string (24-char hex)
+          if (req.requestedBy && /^[0-9a-fA-F]{24}$/.test(req.requestedBy)) {
+            user = await User.findById(req.requestedBy);
+            profile = user ? await Profile.findOne({ userId: user._id.toString() }) : null;
+          }
+        } catch (err) {
+          console.error(`Error fetching user info for request ${req._id}:`, err);
+        }
 
         return {
           id: req._id.toString(),
           name: req.name,
           description: req.description,
           status: req.status,
-          requestedBy: req.requestedBy,
+          requestedBy: req.requestedBy || 'Unknown',
           requestedByEmail: user?.email || 'Unknown',
           requestedByUsername: profile?.fullName || user?.email || 'Unknown',
           reviewedBy: req.reviewedBy,

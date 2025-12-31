@@ -8,6 +8,11 @@ import { Resend } from 'resend';
 const resend = new Resend(process.env.RESEND_API_KEY || 're_123');
 const fromEmail = process.env.RESEND_FROM_EMAIL || 'noreply@carpool.app';
 
+// Helper to validate email format before sending to Resend
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 export async function sendRideExpirationEmail(
   userEmail: string,
   userName: string,
@@ -207,6 +212,11 @@ export async function sendCommunityApprovalEmail(
     return;
   }
 
+  if (!isValidEmail(userEmail)) {
+    console.warn(`⚠️ Invalid recipient email format: "${userEmail}". Skipping community approval email.`);
+    return;
+  }
+
   try {
     const dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://ridesharee.com'}/dashboard?tab=communities`;
 
@@ -338,6 +348,8 @@ export async function sendCommunityApprovalEmail(
       </html>
     `;
 
+    console.log(`📤 Sending Community Approval Email to: "${userEmail}" for community: "${communityName}"`);
+
     const result = await resend.emails.send({
       from: fromEmail,
       to: userEmail,
@@ -346,12 +358,12 @@ export async function sendCommunityApprovalEmail(
     });
 
     if (result.error) {
-      console.error('Failed to send community approval email:', result.error);
+      console.error('❌ Resend Error (Community Approval):', result.error);
     } else {
-      console.log('Community approval email sent successfully:', result.data);
+      console.log('✅ Community approval email sent successfully:', result.data);
     }
   } catch (error) {
-    console.error('Error sending community approval email:', error);
+    console.error('💥 Fatal Error sending community approval email:', error);
   }
 }
 /**
@@ -364,6 +376,11 @@ export async function sendNICRejectionEmail(
 ): Promise<void> {
   if (!process.env.RESEND_API_KEY) {
     console.warn('RESEND_API_KEY not configured. Skipping email notification.');
+    return;
+  }
+
+  if (!isValidEmail(userEmail)) {
+    console.warn(`⚠️ Invalid recipient email format: "${userEmail}". Skipping NIC rejection email.`);
     return;
   }
 
@@ -525,12 +542,12 @@ export async function sendNICRejectionEmail(
     });
 
     if (result.error) {
-      console.error('Failed to send NIC rejection email:', result.error);
+      console.error('❌ Resend Error (NIC Rejection):', result.error);
     } else {
-      console.log('NIC rejection email sent successfully:', result.data);
+      console.log('✅ NIC rejection email sent successfully:', result.data);
     }
   } catch (error) {
-    console.error('Error sending NIC rejection email:', error);
+    console.error('💥 Fatal Error sending NIC rejection email:', error);
   }
 }
 
@@ -545,6 +562,11 @@ export async function sendCommunityRejectionEmail(
 ): Promise<void> {
   if (!process.env.RESEND_API_KEY) {
     console.warn('RESEND_API_KEY not configured. Skipping email notification.');
+    return;
+  }
+
+  if (!isValidEmail(userEmail)) {
+    console.warn(`⚠️ Invalid recipient email format: "${userEmail}". Skipping community rejection email.`);
     return;
   }
 
@@ -701,6 +723,8 @@ export async function sendCommunityRejectionEmail(
       </html>
     `;
 
+    console.log(`📤 Sending Community Rejection Email to: "${userEmail}" for community: "${communityName}"`);
+
     const result = await resend.emails.send({
       from: fromEmail,
       to: userEmail,
@@ -709,12 +733,12 @@ export async function sendCommunityRejectionEmail(
     });
 
     if (result.error) {
-      console.error('Failed to send community rejection email:', result.error);
+      console.error('❌ Resend Error (Community Rejection):', result.error);
     } else {
-      console.log('Community rejection email sent successfully:', result.data);
+      console.log('✅ Community rejection email sent successfully:', result.data);
     }
   } catch (error) {
-    console.error('Error sending community rejection email:', error);
+    console.error('💥 Fatal Error sending community rejection email:', error);
   }
 }
 /**
@@ -727,6 +751,11 @@ export async function sendNICApprovalEmail(
 ): Promise<void> {
   if (!process.env.RESEND_API_KEY) {
     console.warn('RESEND_API_KEY not configured. Skipping email notification.');
+    return;
+  }
+
+  if (!isValidEmail(userEmail)) {
+    console.warn(`⚠️ Invalid recipient email format: "${userEmail}". Skipping NIC approval email.`);
     return;
   }
 
@@ -889,11 +918,11 @@ export async function sendNICApprovalEmail(
     });
 
     if (result.error) {
-      console.error('Failed to send NIC approval email:', result.error);
+      console.error('❌ Resend Error (NIC Approval):', result.error);
     } else {
-      console.log('NIC approval email sent successfully:', result.data);
+      console.log('✅ NIC approval email sent successfully:', result.data);
     }
   } catch (error) {
-    console.error('Error sending NIC approval email:', error);
+    console.error('💥 Fatal Error sending NIC approval email:', error);
   }
 }

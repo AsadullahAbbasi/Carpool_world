@@ -302,7 +302,16 @@ export default function AdminPage() {
         });
         setShowRequestDialog(false);
         setSelectedRequest(null);
-        loadCommunityRequests();
+
+        // Immediately remove the request from the list if we're on "pending" filter
+        if (requestStatusFilter === 'pending') {
+          setCommunityRequests(prevRequests =>
+            prevRequests.filter(req => req.id !== requestId)
+          );
+        } else {
+          // Otherwise refresh to get updated data
+          loadCommunityRequests();
+        }
       } else {
         toast({
           title: 'Error',
@@ -350,7 +359,16 @@ export default function AdminPage() {
         setShowRequestDialog(false);
         setSelectedRequest(null);
         setRejectionReason('');
-        loadCommunityRequests();
+
+        // Immediately remove the request from the list if we're on "pending" filter
+        if (requestStatusFilter === 'pending') {
+          setCommunityRequests(prevRequests =>
+            prevRequests.filter(req => req.id !== requestId)
+          );
+        } else {
+          // Otherwise refresh to get updated data
+          loadCommunityRequests();
+        }
       } else {
         toast({
           title: 'Error',

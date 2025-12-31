@@ -16,13 +16,21 @@ import { sendRideExpirationEmail } from '@/lib/resend-client';
 // Allow function to run for up to 60 seconds
 export const maxDuration = 60;
 
-// Vercel cron jobs automatically call this endpoint
-export async function POST(req: NextRequest) {
+// Consolidated handler for both GET and POST
+async function handleCron(req: NextRequest) {
   try {
-    // Verify this is coming from Vercel Cron
+    // Verify this is coming from Vercel Cron or authorized manual trigger
     const authHeader = req.headers.get('authorization');
+    const searchParams = req.nextUrl.searchParams;
+    const queryToken = searchParams.get('token');
+    const secretToken = process.env.CRON_SECRET;
 
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    // Support both Bearer token in header and token in query param for easier testing
+    const isAuthorized =
+      (authHeader === `Bearer ${secretToken}`) ||
+      (queryToken === secretToken && secretToken !== undefined);
+
+    if (!isAuthorized) {
       console.warn('Unauthorized cron request');
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -120,4 +128,12 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+export async function GET(req: NextRequest) {
+  return handleCron(req);
+}
+
+export async function POST(req: NextRequest) {
+  return handleCron(req);
 }
