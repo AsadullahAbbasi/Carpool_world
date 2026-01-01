@@ -58,6 +58,9 @@ export const metadata: Metadata = {
     description: 'Affordable and safe ridesharing for university students in Pakistan.',
     images: ['/RideShare_Logo.png'],
   },
+  verification: {
+    google: 'dgGijcp99HvmHfg6ZBFcqMtLDU4hz0G6w7qsm2KLD4E',
+  },
 };
 
 export default function RootLayout({
