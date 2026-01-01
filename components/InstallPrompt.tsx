@@ -9,6 +9,12 @@ export default function InstallPrompt() {
     const [showPrompt, setShowPrompt] = useState(false);
 
     useEffect(() => {
+        // Check if already dismissed or if app is already installed
+        const isDismissed = localStorage.getItem('pwa-prompt-dismissed');
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
+
+        if (isDismissed || isStandalone) return;
+
         const handler = (e: Event) => {
             e.preventDefault();
             setDeferredPrompt(e);
@@ -29,9 +35,15 @@ export default function InstallPrompt() {
         const { outcome } = await deferredPrompt.userChoice;
 
         if (outcome === 'accepted') {
+            localStorage.setItem('pwa-prompt-dismissed', 'true');
             setDeferredPrompt(null);
             setShowPrompt(false);
         }
+    };
+
+    const handleDismiss = () => {
+        localStorage.setItem('pwa-prompt-dismissed', 'true');
+        setShowPrompt(false);
     };
 
     if (!showPrompt) return null;
@@ -44,7 +56,7 @@ export default function InstallPrompt() {
                     <p className="text-xs text-muted-foreground">Add to home screen for better experience</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button size="sm" variant="ghost" onClick={() => setShowPrompt(false)} className="h-8 w-8 p-0">
+                    <Button size="sm" variant="ghost" onClick={handleDismiss} className="h-8 w-8 p-0">
                         <X className="w-4 h-4" />
                     </Button>
                     <Button size="sm" onClick={handleInstall} className="gap-2">

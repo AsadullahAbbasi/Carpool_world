@@ -332,7 +332,7 @@ export async function sendCommunityApprovalEmail(
               <p>You can now:</p>
               <ul>
                 <li>Start managing your community</li>
-                <li>Invite members to join</li>
+                // <li>Invite members to join</li>
                 <li>Post rides within your community</li>
                 <li>Build connections with community members</li>
               </ul>

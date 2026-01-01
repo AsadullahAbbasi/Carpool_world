@@ -17,34 +17,34 @@ const DUMMY_RIDES = [
   {
     id: 'dummy-1',
     type: 'offering',
-    start_location: 'DHA Phase 5',
-    end_location: 'Gulshan-e-Iqbal',
+    start_location: 'Korangi-crossing',
+    end_location: 'Gu-tech',
     ride_date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     ride_time: '09:00',
     seats_available: 3,
-    profiles: { full_name: 'Ahmed Khan', nic_verified: true },
+    profiles: { full_name: 'Asadullah', nic_verified: true },
     created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
   },
   {
     id: 'dummy-2',
     type: 'offering',
-    start_location: 'Bahria Town',
-    end_location: 'Faisalabad',
+    start_location: 'Gulshan-e-Iqbal',
+    end_location: 'Korangi-crossing',
     ride_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     ride_time: '14:30',
     seats_available: 2,
-    profiles: { full_name: 'Fatima Ali', nic_verified: true },
+    profiles: { full_name: 'Moosa Khan', nic_verified: true },
     created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
   },
   {
     id: 'dummy-3',
     type: 'offering',
-    start_location: 'Model Town',
-    end_location: 'Airport',
+    start_location: 'DHA Phase-2',
+    end_location: 'Ghazali University',
     ride_date: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     ride_time: '06:00',
-    seats_available: 4,
-    profiles: { full_name: 'Hassan Malik', nic_verified: false },
+    seats_available: 2,
+    profiles: { full_name: 'Abuzar', nic_verified: false },
     created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
   },
 ];
@@ -52,20 +52,20 @@ const DUMMY_RIDES = [
 const DUMMY_COMMUNITIES = [
   {
     id: 'dummy-comm-1',
-    name: 'Fast University Community',
-    description: 'Connect with students and staff from universities in Lahore',
+    name: 'Fast Nuces',
+    description: 'Connect with students and staff from Fast University Karachi',
     member_count: 245,
   },
   {
     id: 'dummy-comm-2',
-    name: 'IBA Daily Commute',
-    description: 'Daily commute rides in Karachi metropolitan area',
+    name: 'GU Tech',
+    description: 'Connect with students and staff from Ghazali University Karachi',
     member_count: 189,
   },
   {
     id: 'dummy-comm-3',
-    name: 'Islamabad Tech Park',
-    description: 'Rides for professionals working in tech parks and offices',
+    name: 'CBM/IOBM',
+    description: 'Connect with students and staff from CBM/IOBM Karachi',
     member_count: 156,
   },
 ];
@@ -243,8 +243,8 @@ export default function LandingPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Users className="w-4 h-4" />
-                    {community.member_count || 0} members
+                    {/* <Users className="w-4 h-4" /> */}
+                    {/* {community.member_count || 0} members */}
                   </div>
                 </CardContent>
               </Card>
@@ -411,8 +411,8 @@ export default function LandingPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="font-semibold">Ahmed K.</p>
-                <p className="text-sm text-muted-foreground">Lahore</p>
+                <p className="font-semibold">Asadullah.</p>
+                <p className="text-sm text-muted-foreground">Karachi</p>
               </CardContent>
             </Card>
             <Card className="border-border">

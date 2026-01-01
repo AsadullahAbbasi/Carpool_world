@@ -27,15 +27,6 @@ export const metadata: Metadata = {
   authors: [{ name: 'RideSharee Team' }],
   creator: 'RideSharee',
   manifest: '/manifest.json',
-  icons: {
-    icon: [
-      { url: '/RideShare_Logo.png', type: 'image/png' },
-    ],
-    shortcut: '/RideShare_Logo.png',
-    apple: [
-      { url: '/RideShare_Logo.png', sizes: '180x180', type: 'image/png' },
-    ],
-  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
