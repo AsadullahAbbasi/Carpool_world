@@ -21,11 +21,19 @@ const PublicNavbar = () => {
     'after:transition-transform after:duration-300 hover:after:scale-x-100 focus-visible:after:scale-x-100';
 
   useEffect(() => {
+    let ticking = false;
+
     const handleScroll = () => {
-      setScrolled(window.scrollY > 20);
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          setScrolled(window.scrollY > 20);
+          ticking = false;
+        });
+        ticking = true;
+      }
     };
 
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     // Ensure correct initial style (no "tiny scroll" needed)
     handleScroll();
     return () => window.removeEventListener('scroll', handleScroll);

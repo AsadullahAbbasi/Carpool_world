@@ -198,13 +198,9 @@
     transition: background-color 0.3s ease, color 0.3s ease;
   }
 
-  /* Smooth transitions for all elements on theme change */
-  *,
-  *::before,
-  *::after {
-    transition-property: background-color, border-color, color, fill, stroke;
-    transition-duration: 0.3s;
-    transition-timing-function: ease;
+  /* Selective theme transitions for better performance than global * */
+  body {
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
 
   /* Subtle hover effects - only on hover-capable devices */
@@ -255,28 +251,12 @@
   }
 }
 
-@keyframes scaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
 .animate-fade-in {
   animation: fadeIn 0.4s ease-out;
 }
 
 .animate-slide-up {
   animation: slideUp 0.4s ease-out;
-}
-
-.animate-scale-in {
-  animation: scaleIn 0.3s ease-out;
 }
 
 /* Slower pulse animation for skeleton loaders */
