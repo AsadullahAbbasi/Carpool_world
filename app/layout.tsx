@@ -22,10 +22,11 @@ export const metadata: Metadata = {
     default: 'RideSharee - Rideshare App',
     template: '%s | RideSharee',
   },
-  description: 'Affordable and safe ridesharing for university students in Pakistan. Connect, share, and travel together.',
-  keywords: ['ridesharee', 'ride share', 'university rides', 'cheap rides', 'student transport', 'Pakistan'],
-  authors: [{ name: 'RideSharee Team' }],
+  description: 'Affordable and safe ridesharing for university students in Pakistan. Connect, share, and travel together with RideSharee.',
+  keywords: ['RideSharee', 'rideshare', 'carpool Pakistan', 'university rides Karachi', 'student transport', 'cheap rides', 'Ghazali University', 'Fast Nuces', 'IOBM'],
+  authors: [{ name: 'RideSharee Team', url: 'https://www.ridesharee.com' }],
   creator: 'RideSharee',
+  publisher: 'RideSharee',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
@@ -38,7 +39,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    url: 'https://ridesharee.com',
+    url: 'https://www.ridesharee.com',
     title: 'RideSharee - Rideshare App',
     description: 'Affordable and safe ridesharing for university students in Pakistan.',
     siteName: 'RideSharee',
@@ -81,15 +82,53 @@ export default function RootLayout({
             dangerouslySetInnerHTML={{
               __html: JSON.stringify({
                 '@context': 'https://schema.org',
-                '@type': 'Organization',
-                name: 'RideSharee',
-                url: 'https://ridesharee.com',
-                logo: 'https://ridesharee.com/RideShare_Logo.png',
-                description: 'Affordable and safe ridesharing for university students in Pakistan.',
-                sameAs: [
-                  'https://facebook.com/ridesharee',
-                  'https://twitter.com/ridesharee',
-                  'https://instagram.com/ridesharee',
+                '@graph': [
+                  {
+                    '@type': 'Organization',
+                    name: 'RideSharee',
+                    url: 'https://www.ridesharee.com',
+                    logo: 'https://www.ridesharee.com/RideShare_Logo.png',
+                    description: 'Affordable and safe ridesharing for university students in Pakistan.',
+                    sameAs: [
+                      'https://facebook.com/ridesharee',
+                      'https://twitter.com/ridesharee',
+                      'https://instagram.com/ridesharee',
+                    ],
+                  },
+                  {
+                    '@type': 'WebSite',
+                    name: 'RideSharee',
+                    url: 'https://www.ridesharee.com',
+                    potentialAction: {
+                      '@type': 'SearchAction',
+                      target: 'https://www.ridesharee.com/dashboard?tab=rides&q={search_term_string}',
+                      'query-input': 'required name=search_term_string',
+                    },
+                  },
+                  {
+                    '@type': 'ItemList',
+                    name: 'Main Navigation',
+                    itemListElement: [
+                      {
+                        '@type': 'SiteNavigationElement',
+                        position: 1,
+                        name: 'Browse Rides',
+                        url: 'https://www.ridesharee.com/dashboard?tab=rides',
+                      },
+                      {
+                        '@type': 'SiteNavigationElement',
+                        position: 2,
+                        name: 'Communities',
+                        url: 'https://www.ridesharee.com/dashboard?tab=communities',
+                      },
+                      {
+                        '@type': 'SiteNavigationElement',
+                        position: 3,
+                        name: 'Sign In',
+                        url: 'https://www.ridesharee.com/auth',
+                      },
+                    ],
+                  },
                 ],
               }),
             }}

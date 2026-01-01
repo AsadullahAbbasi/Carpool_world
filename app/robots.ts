@@ -5,8 +5,8 @@ export default function robots(): MetadataRoute.Robots {
         rules: {
             userAgent: '*',
             allow: '/',
-            disallow: ['/api/', '/dashboard/'],
+            disallow: ['/api/'],
         },
-        sitemap: 'https://rideshare.com/sitemap.xml',
+        sitemap: 'https://www.ridesharee.com/sitemap.xml',
     };
 }
