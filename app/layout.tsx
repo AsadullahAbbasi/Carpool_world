@@ -6,6 +6,7 @@ import { Toaster as Sonner } from '@/components/ui/sonner';
 import { Providers } from './providers';
 import InstallPrompt from '@/components/InstallPrompt';
 import BottomNav from '@/components/BottomNav';
+import SafetyNoticeModal from '@/components/SafetyNoticeModal';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -77,6 +78,7 @@ export default function RootLayout({
             {children}
             <BottomNav />
             <InstallPrompt />
+            <SafetyNoticeModal />
             <Toaster />
             <Sonner />
           </Providers>
