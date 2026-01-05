@@ -43,6 +43,7 @@ function transformRide(ride: any, profile?: any) {
     profiles: profile ? {
       full_name: profile.fullName || profile.full_name,
       nic_verified: profile.nicVerified !== undefined ? profile.nicVerified : (profile.nic_verified !== undefined ? profile.nic_verified : false),
+      disable_auto_expiry: profile.disableAutoExpiry || false,
     } : null,
   };
 }
@@ -74,10 +75,12 @@ export const GET = async (req: NextRequest) => {
     if (userId) {
       query.userId = userId;
     } else {
-      // Otherwise, filter out expired and archived rides
+      // Otherwise, filter out archived rides
       query.isArchived = { $ne: true };
-      const now = new Date();
-      query.expiresAt = { $gt: now };
+
+      // We'll handle expiration filtering after fetching profiles 
+      // OR we can use a complex query if we want to do it in MongoDB.
+      // For now, let's fetch more and filter in memory since we need profile data anyway.
     }
 
     // Determine sort order
@@ -104,13 +107,24 @@ export const GET = async (req: NextRequest) => {
       );
     }
 
-    // Fetch profiles for each ride
-    const ridesWithProfiles = await Promise.all(
-      rides.map(async (ride: any) => {
-        const profile = await Profile.findOne({ userId: ride.userId || ride.user_id }).lean();
-        return transformRide(ride, profile || undefined);
-      })
-    );
+    // Fetch profiles for each ride and filter by expiry if not in "My Rides"
+    const now = new Date();
+    const ridesWithProfiles = [];
+
+    for (const ride of rides) {
+      const profile = await Profile.findOne({ userId: ride.userId }).lean();
+      const transformed = transformRide(ride, profile || undefined);
+
+      // If not "My Rides" view, filter out expired rides UNLESS disableAutoExpiry is true
+      if (!userId) {
+        const isActuallyExpired = new Date(transformed.expires_at) <= now && !transformed.profiles?.disable_auto_expiry;
+        if (!isActuallyExpired) {
+          ridesWithProfiles.push(transformed);
+        }
+      } else {
+        ridesWithProfiles.push(transformed);
+      }
+    }
 
     // Apply client-side filters
     let filteredRides = ridesWithProfiles;
@@ -161,18 +175,27 @@ export const POST = authMiddleware(async (req) => {
 
     // Check for existing active rides
     const now = new Date();
-    const existingActiveRide = await Ride.findOne({
+    const userProfile = await Profile.findOne({ userId }).lean();
+
+    // Find all non-archived rides for this user
+    const existingRides = await Ride.find({
       userId,
       isArchived: { $ne: true },
-      expiresAt: { $gt: now },
     }).lean();
 
-    if (existingActiveRide) {
+    // Check if any are "active" (either not chronologicaly expired OR auto-expiry is disabled)
+    const activeRide = existingRides.find(ride => {
+      const isChronologicallyActive = new Date(ride.expiresAt) > now;
+      const isAutoExpiryDisabled = userProfile?.disableAutoExpiry === true;
+      return isChronologicallyActive || isAutoExpiryDisabled;
+    });
+
+    if (activeRide) {
       return NextResponse.json(
         {
           error: 'You already have an active ride',
           hasActiveRide: true,
-          rideId: existingActiveRide._id?.toString(),
+          rideId: activeRide._id?.toString(),
         },
         { status: 400 }
       );

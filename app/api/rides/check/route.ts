@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { authMiddleware } from '@/lib/middleware';
 import connectDB from '@/lib/mongodb';
 import { Ride } from '@/models/Ride';
+import { Profile } from '@/models/Profile';
 
 export const GET = authMiddleware(async (req) => {
     try {
@@ -9,12 +10,26 @@ export const GET = authMiddleware(async (req) => {
         const userId = req.userId!;
         const now = new Date();
 
+        // Get user profile to check disableAutoExpiry setting
+        const profile = await Profile.findOne({ userId }).lean();
+        const disableAutoExpiry = profile?.disableAutoExpiry || false;
+
         // Find active ride
-        const activeRide = await Ride.findOne({
-            userId,
-            isArchived: { $ne: true },
-            expiresAt: { $gt: now },
-        }).lean();
+        let activeRide = null;
+        if (disableAutoExpiry) {
+            // If auto-expiry is disabled, any non-archived ride is active
+            activeRide = await Ride.findOne({
+                userId,
+                isArchived: { $ne: true },
+            }).lean();
+        } else {
+            // Otherwise, respect the expiration time
+            activeRide = await Ride.findOne({
+                userId,
+                isArchived: { $ne: true },
+                expiresAt: { $gt: now },
+            }).lean();
+        }
 
         // Find most recent expired ride
         const expiredRide = await Ride.findOne({

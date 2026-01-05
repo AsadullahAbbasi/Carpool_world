@@ -562,8 +562,12 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
             title: '✅ Ride Updated!',
             description: `Your ${formData.type === 'offering' ? 'ride offer' : 'ride request'} has been updated successfully!`,
           });
-          if (onRideUpdated && response.ride) {
-            onRideUpdated(response.ride);
+          if (response.ride) {
+            if (onRideUpdated) {
+              onRideUpdated(response.ride);
+            }
+            // Notify other components
+            window.dispatchEvent(new CustomEvent('rideUpdated', { detail: response.ride }));
           }
         }).catch((error: any) => {
           toast({
@@ -606,9 +610,13 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
             title: '🎉 Success!',
             description: `Your ${formData.type === 'offering' ? 'ride offer' : 'ride request'} from ${formData.start_location} to ${formData.end_location} has been posted!`,
           });
-          if (onRideCreated && response.ride) {
-            // Replace optimistic ride with real one
-            onRideCreated(response.ride);
+          if (response.ride) {
+            if (onRideCreated) {
+              // Replace optimistic ride with real one
+              onRideCreated(response.ride);
+            }
+            // Notify other components
+            window.dispatchEvent(new CustomEvent('rideCreated', { detail: response.ride }));
           }
         }).catch((error: any) => {
           // Identify if it was an Active Ride Error

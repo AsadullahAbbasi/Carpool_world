@@ -28,6 +28,7 @@ function transformRide(ride: any, profile?: any) {
     profiles: profile ? {
       full_name: profile.fullName || profile.full_name,
       nic_verified: profile.nicVerified !== undefined ? profile.nicVerified : (profile.nic_verified !== undefined ? profile.nic_verified : false),
+      disable_auto_expiry: profile.disableAutoExpiry || false,
     } : null,
   };
 }
@@ -92,6 +93,12 @@ export async function GET(req: NextRequest) {
 
               // Fetch profile and user for the ride
               const profile = await Profile.findOne({ userId: ride.userId }).lean();
+
+              // Skip if user has auto-expiry disabled
+              if (profile?.disableAutoExpiry) {
+                continue;
+              }
+
               const user = await User.findById(ride.userId).lean();
               const transformedRide = transformRide(ride, profile || undefined);
 

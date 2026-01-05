@@ -533,7 +533,7 @@ export default function LandingPage() {
               <h3 className="font-semibold mb-4">Support</h3>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><Link href="#" className="hover:text-foreground transition-colors">Help Center</Link></li>
-                <li><Link href="#" className="hover:text-foreground transition-colors">Contact</Link></li>
+                <li><Link href="mailto:hello@ridesharee.com" className="hover:text-foreground transition-colors">hello@ridesharee.com</Link></li>
               </ul>
             </div>
           </div>

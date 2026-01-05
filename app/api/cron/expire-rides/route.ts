@@ -8,10 +8,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/lib/mongodb';
-import { Profile } from '@/models/Profile';
-import { User } from '@/models/User';
-import { sendRideExpirationEmail } from '@/lib/resend-client';
+// import connectDB from '@/lib/mongodb';
+// import { Profile } from '@/models/Profile';
+// import { User } from '@/models/User';
+// import { sendRideExpirationEmail } from '@/lib/resend-client';
 
 // Allow function to run for up to 60 seconds
 export const maxDuration = 60;
@@ -40,6 +40,7 @@ async function handleCron(req: NextRequest) {
 
     console.log('🔄 Starting expired rides check...');
 
+    /*
     // Connect to MongoDB
     const mongoose = await connectDB();
     const db = mongoose.connection.db;
@@ -75,37 +76,44 @@ async function handleCron(req: NextRequest) {
         }
 
         // Send email
-        await sendRideExpirationEmail(
-          user.email,
-          profile?.fullName || 'User',
-          {
-            startLocation: ride.startLocation,
-            endLocation: ride.endLocation,
-            rideDate: ride.rideDate ? new Date(ride.rideDate).toISOString().split('T')[0] : '',
-            rideTime: ride.rideTime,
-            rideType: ride.type,
-          }
-        );
+        // Send email
+        // await sendRideExpirationEmail(
+        //   user.email,
+        //   profile?.fullName || 'User',
+        //   {
+        //     startLocation: ride.startLocation,
+        //     endLocation: ride.endLocation,
+        //     rideDate: ride.rideDate ? new Date(ride.rideDate).toISOString().split('T')[0] : '',
+        //     rideTime: ride.rideTime,
+        //     rideType: ride.type,
+        //   }
+        // );
 
         // Mark email as sent in database
-        await ridesCollection.updateOne(
-          { _id: ride._id },
-          {
-            $set: {
-              emailSent: true,
-              emailSentAt: new Date(),
-              notificationSentAt: new Date(),
-            }
-          }
-        );
+        // await ridesCollection.updateOne(
+        //   { _id: ride._id },
+        //   {
+        //     $set: {
+        //       emailSent: true,
+        //       emailSentAt: new Date(),
+        //       notificationSentAt: new Date(),
+        //     }
+        //   }
+        // );
 
-        console.log(`✅ Email sent for ride ${ride._id}`);
-        emailsSent++;
+        // console.log(`✅ Email sent for ride ${ride._id}`);
+        // emailsSent++;
       } catch (error) {
         console.error(`❌ Failed to send email for ride ${ride._id}:`, error);
         emailsFailed++;
       }
     }
+    */
+
+    console.log('🚫 Cron job logic disabled - skipping DB check');
+    const expiredRides: any[] = [];
+    const emailsSent = 0;
+    const emailsFailed = 0;
 
     console.log(`✨ Cron job completed - Sent: ${emailsSent}, Failed: ${emailsFailed}`);
 
