@@ -543,7 +543,10 @@ const RidesList = ({
                     if (index === -1) {
                       return prev; // Ride not in filtered list
                     }
-                    // Remove expired ride from All Rides view (it's no longer bookable)
+                    // Remove expired ride from All Rides view UNLESS auto-expiry is disabled
+                    if (ride.profiles?.disable_auto_expiry) {
+                      return prev;
+                    }
                     // Users viewing My Rides will still see it with the reactivate option
                     return prev.filter((r) => r.id !== ride.id);
                   });
@@ -662,8 +665,8 @@ const RidesList = ({
     // Apply basic exclusion rules (archived/expired) unless showing "My Rides"
     if (!showOnlyMyRides) {
       const now = new Date();
-      const isExpired = updatedRide.expires_at && new Date(updatedRide.expires_at) <= now;
-      if (updatedRide.is_archived || isExpired) {
+      const isActuallyExpired = updatedRide.expires_at && new Date(updatedRide.expires_at) <= now && !updatedRide.profiles?.disable_auto_expiry;
+      if (updatedRide.is_archived || isActuallyExpired) {
         shouldInclude = false;
       }
     }

@@ -77,6 +77,7 @@ function transformRide(ride: any, profile?: any): ServerRide {
     profiles: profile ? {
       full_name: profile.fullName || 'Unknown',
       nic_verified: profile.nicVerified || false,
+      disable_auto_expiry: profile.disableAutoExpiry || false,
     } : null,
   };
 }
@@ -158,11 +159,11 @@ export async function getServerRides(params?: {
     await connectDB();
 
     let query: any = {};
-    
+
     if (params?.communityId) {
       query.communityId = params.communityId;
     }
-    
+
     if (params?.type && params.type !== 'all' && params.type !== 'verified') {
       query.type = params.type;
     }
@@ -171,10 +172,9 @@ export async function getServerRides(params?: {
     if (params?.userId) {
       query.userId = params.userId;
     } else {
-      // Otherwise, filter out expired and archived rides
+      // Otherwise, filter out archived rides
+      // We'll filter out expired rides later after fetching profile settings
       query.isArchived = { $ne: true };
-      const now = new Date();
-      query.expiresAt = { $gt: now };
     }
 
     // Determine sort order
@@ -206,8 +206,8 @@ export async function getServerRides(params?: {
 
     const profiles = userIds.length
       ? await Profile.find({ userId: { $in: userIds } })
-          .select({ userId: 1, fullName: 1, nicVerified: 1 })
-          .lean()
+        .select({ userId: 1, fullName: 1, nicVerified: 1, disableAutoExpiry: 1 })
+        .lean()
       : [];
 
     const profileByUserId = new Map<string, any>();
@@ -223,6 +223,15 @@ export async function getServerRides(params?: {
 
     // Apply client-side filters
     let filteredRides = ridesWithProfiles;
+
+    // If not "My Rides" view, filter out expired rides UNLESS disableAutoExpiry is true
+    if (!params?.userId) {
+      const now = new Date();
+      filteredRides = filteredRides.filter((ride: any) => {
+        const isActuallyExpired = new Date(ride.expires_at) <= now && !ride.profiles?.disable_auto_expiry;
+        return !isActuallyExpired;
+      });
+    }
 
     // Filter by verification status if "verified" filter is selected
     if (params?.filterType === 'verified') {
@@ -349,10 +358,9 @@ export async function getServerCommunityRides(communityId: string, params?: {
     if (params?.userId) {
       query.userId = params.userId;
     } else {
-      // Otherwise, filter out expired and archived rides
+      // Otherwise, filter out archived rides
+      // We'll filter out expired rides later after fetching profile settings
       query.isArchived = { $ne: true };
-      const now = new Date();
-      query.expiresAt = { $gt: now };
     }
 
     // Apply ride type filter
@@ -385,8 +393,8 @@ export async function getServerCommunityRides(communityId: string, params?: {
 
     const profiles = userIds.length
       ? await Profile.find({ userId: { $in: userIds } })
-          .select({ userId: 1, fullName: 1, nicVerified: 1 })
-          .lean()
+        .select({ userId: 1, fullName: 1, nicVerified: 1, disableAutoExpiry: 1 })
+        .lean()
       : [];
 
     const profileByUserId = new Map<string, any>();
@@ -402,6 +410,15 @@ export async function getServerCommunityRides(communityId: string, params?: {
 
     // Apply client-side filters
     let filteredRides = ridesWithProfiles;
+
+    // If not "My Rides" view, filter out expired rides UNLESS disableAutoExpiry is true
+    if (!params?.userId) {
+      const now = new Date();
+      filteredRides = filteredRides.filter((ride: any) => {
+        const isActuallyExpired = new Date(ride.expires_at) <= now && !ride.profiles?.disable_auto_expiry;
+        return !isActuallyExpired;
+      });
+    }
 
     // Filter by verification status if "verified" filter is selected
     if (params?.filterType === 'verified') {
