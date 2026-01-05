@@ -348,15 +348,15 @@ const ProfileDialog = ({ open, onOpenChange, onProfileUpdate, completionMessage 
           {/* Settings Section */}
           <div className="space-y-2 pt-2 border-t">
             <Label className="text-base font-semibold">Settings</Label>
-            
+
             {/* Auto-Expiry Toggle */}
             <div className="flex items-center justify-between p-3 border rounded-md">
               <div className="flex-1">
                 <Label htmlFor="disableAutoExpiry" className="text-sm font-medium cursor-pointer">
-                  Keep my rides active until I remove them
+                  Keep my rides active indefinitely
                 </Label>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Turn off automatic expiry for your rides (off by default)
+                  Rides expire in 24 hours by default. Enable this to prevent automatic expiry.
                 </p>
               </div>
               <input
