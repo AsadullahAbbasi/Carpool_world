@@ -162,7 +162,10 @@ export async function getServerRides(params?: {
     let query: any = {};
 
     if (params?.communityId) {
-      query.communityId = params.communityId;
+      query.$or = [
+        { communityId: params.communityId },
+        { communityIds: params.communityId }
+      ];
     }
 
     if (params?.type && params.type !== 'all' && params.type !== 'verified') {
@@ -278,9 +281,67 @@ export async function getServerCommunities(): Promise<ServerCommunity[]> {
   try {
     await connectDB();
 
-    const communities = await Community.find({})
-      .sort({ createdAt: -1 })
-      .lean();
+    const communities = await Community.aggregate([
+      {
+        $lookup: {
+          from: 'communitymembers',
+          let: { communityId: { $toString: '$_id' } },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $or: [
+                    { $eq: ['$communityId', '$$communityId'] },
+                    { $eq: ['$communityId', { $toObjectId: '$$communityId' }] }
+                  ]
+                }
+              }
+            }
+          ],
+          as: 'members'
+        }
+      },
+      {
+        $lookup: {
+          from: 'rides',
+          let: { communityId: { $toString: '$_id' } },
+          pipeline: [
+            {
+              $match: {
+                $and: [
+                  { isArchived: { $ne: true } },
+                  {
+                    $expr: {
+                      $or: [
+                        // Check in communityIds array (new format)
+                        { $in: ['$$communityId', { $ifNull: ['$communityIds', []] }] },
+                        { $in: [{ $toObjectId: '$$communityId' }, { $ifNull: ['$communityIds', []] }] },
+                        // Check communityId singular (legacy format)
+                        { $eq: ['$communityId', '$$communityId'] },
+                        { $eq: ['$communityId', { $toObjectId: '$$communityId' }] }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          as: 'rides'
+        }
+      },
+      {
+        $project: {
+          name: 1,
+          description: 1,
+          createdBy: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          memberCount: { $size: '$members' },
+          rideCount: { $size: '$rides' }
+        }
+      },
+      { $sort: { createdAt: -1 } }
+    ]);
 
     return communities.map((community: any) => ({
       id: community._id.toString(),
@@ -289,6 +350,8 @@ export async function getServerCommunities(): Promise<ServerCommunity[]> {
       created_by: community.createdBy,
       created_at: community.createdAt ? new Date(community.createdAt).toISOString() : new Date().toISOString(),
       updated_at: community.updatedAt ? new Date(community.updatedAt).toISOString() : new Date().toISOString(),
+      memberCount: community.memberCount || 0,
+      rideCount: community.rideCount || 0,
     }));
   } catch (error) {
     console.error('Server get communities error:', error);
@@ -352,7 +415,10 @@ export async function getServerCommunityRides(communityId: string, params?: {
     await connectDB();
 
     let query: any = {
-      communityId: communityId,
+      $or: [
+        { communityId: communityId },
+        { communityIds: communityId }
+      ]
     };
 
     // If userId is provided (My Rides), filter by user and don't filter expired/archived

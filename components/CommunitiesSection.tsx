@@ -29,7 +29,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Users, UserPlus, UserMinus, Trash2, ArrowLeft } from 'lucide-react';
+import { Plus, Users, UserPlus, UserMinus, Trash2, ArrowLeft, Car } from 'lucide-react';
 import RidesList from './RidesList';
 import { CreateRideDialog } from './CreateRideDialog';
 import ProfileDialog from './ProfileDialog';
@@ -51,7 +51,8 @@ interface Community {
   description: string | null;
   created_by: string;
   created_at?: string;
-  _count?: number;
+  memberCount?: number;
+  rideCount?: number;
 }
 
 interface CommunitiesSectionProps {
@@ -154,6 +155,8 @@ const CommunitiesSection = ({
         created_by: c.created_by,
         created_at: c.created_at,
         updated_at: c.updated_at,
+        memberCount: c.memberCount,
+        rideCount: c.rideCount,
       }));
       setCommunities(transformed);
     } catch (error: any) {
@@ -325,7 +328,7 @@ const CommunitiesSection = ({
         });
       }
 
-      await fetchUserCommunities();
+      await Promise.all([fetchCommunities(), fetchUserCommunities()]);
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -628,8 +631,16 @@ const CommunitiesSection = ({
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-3 flex-wrap">
                     {isJoined && <Badge variant="secondary">Member</Badge>}
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full">
+                      <Users className="w-3.5 h-3.5" />
+                      <span>{community.memberCount || 0}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full">
+                      <Car className="w-3.5 h-3.5" />
+                      <span>{(community.rideCount || 0) > 0 ? `${community.rideCount} active rides` : 'No active rides'}</span>
+                    </div>
                   </div>
                 </CardContent>
                 <CardFooter className="flex gap-2">

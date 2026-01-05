@@ -66,6 +66,8 @@ interface ServerCommunity {
   created_by: string;
   created_at: string;
   updated_at: string;
+  memberCount: number;
+  rideCount: number;
 }
 
 interface DashboardClientProps {

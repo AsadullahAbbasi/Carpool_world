@@ -14,7 +14,67 @@ export const GET = async (req: NextRequest) => {
   try {
     await connectDB();
 
-    const communities = await Community.find().sort({ createdAt: -1 }).lean();
+    const communities = await Community.aggregate([
+      {
+        $lookup: {
+          from: 'communitymembers',
+          let: { communityId: { $toString: '$_id' } },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $or: [
+                    { $eq: ['$communityId', '$$communityId'] },
+                    { $eq: ['$communityId', { $toObjectId: '$$communityId' }] }
+                  ]
+                }
+              }
+            }
+          ],
+          as: 'members'
+        }
+      },
+      {
+        $lookup: {
+          from: 'rides',
+          let: { communityId: { $toString: '$_id' } },
+          pipeline: [
+            {
+              $match: {
+                $and: [
+                  { isArchived: { $ne: true } },
+                  {
+                    $expr: {
+                      $or: [
+                        // Check in communityIds array (new format)
+                        { $in: ['$$communityId', { $ifNull: ['$communityIds', []] }] },
+                        { $in: [{ $toObjectId: '$$communityId' }, { $ifNull: ['$communityIds', []] }] },
+                        // Check communityId singular (legacy format)
+                        { $eq: ['$communityId', '$$communityId'] },
+                        { $eq: ['$communityId', { $toObjectId: '$$communityId' }] }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          as: 'rides'
+        }
+      },
+      {
+        $project: {
+          name: 1,
+          description: 1,
+          createdBy: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          memberCount: { $size: '$members' },
+          rideCount: { $size: '$rides' }
+        }
+      },
+      { $sort: { createdAt: -1 } }
+    ]);
 
     return NextResponse.json({
       communities: communities.map((c: any) => ({
@@ -24,6 +84,8 @@ export const GET = async (req: NextRequest) => {
         created_by: c.createdBy,
         created_at: c.createdAt ? new Date(c.createdAt).toISOString() : new Date().toISOString(),
         updated_at: c.updatedAt ? new Date(c.updatedAt).toISOString() : new Date().toISOString(),
+        memberCount: c.memberCount || 0,
+        rideCount: c.rideCount || 0,
       })),
     });
   } catch (error: any) {
