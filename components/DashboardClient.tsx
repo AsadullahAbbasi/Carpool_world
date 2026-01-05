@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Car, Users, Search, Plus } from 'lucide-react';
 import { authApi } from '@/lib/api-client';
 import ProfileCompletionBanner from '@/components/ProfileCompletionBanner';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface ServerUser {
   id: string;
@@ -76,6 +77,35 @@ interface DashboardClientProps {
   initialUserCommunities: string[];
 }
 
+// Granular skeleton for the content area (rides etc)
+function ContentSkeleton() {
+  return (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {[1, 2, 3, 4, 5, 6].map((i) => (
+        <div key={i} className="border rounded-lg p-4 space-y-3">
+          <div className="h-4 bg-muted rounded w-1/3 mb-2" />
+          <div className="h-3 bg-muted rounded w-2/3" />
+          <div className="h-20 bg-muted rounded" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Component that syncs tab state with URL search params
+function SearchParamSync({ onTabChange }: { onTabChange: (tab: string) => void }) {
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['rides', 'my-rides', 'communities', 'search'].includes(tabParam)) {
+      onTabChange(tabParam);
+    }
+  }, [searchParams, onTabChange]);
+
+  return null;
+}
+
 function DashboardContent({
   initialUser,
   initialProfile,
@@ -89,36 +119,19 @@ function DashboardContent({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCommunity, setSelectedCommunity] = useState<string | null>(null);
   const [selectedCommunityName, setSelectedCommunityName] = useState<string | null>(null);
-  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState('communities');
   const [filterType, setFilterType] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
   const router = useRouter();
   const { toast } = useToast();
-  const isInitialLoadRef = useRef(true);
 
-  // Handle tab from URL query parameter
-  useEffect(() => {
-    const tabParam = searchParams.get('tab');
-    if (tabParam && ['rides', 'my-rides', 'communities', 'search'].includes(tabParam)) {
-      setActiveTab(tabParam);
-      // Clear the tab parameter from URL so refreshing goes back to communities
-      setTimeout(() => {
-        router.replace('/dashboard', { scroll: false });
-      }, 100);
-    }
-  }, [searchParams, router]);
-
-  // Set default tab on initial load
-  useEffect(() => {
-    if (isInitialLoadRef.current) {
-      const tabParam = searchParams.get('tab');
-      if (!tabParam || !['rides', 'my-rides', 'communities', 'search'].includes(tabParam)) {
-        setActiveTab('communities');
-      }
-      isInitialLoadRef.current = false;
-    }
-  }, []); // Only run on mount
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    // Clear the tab parameter from URL so refreshing goes back to communities
+    setTimeout(() => {
+      router.replace('/dashboard', { scroll: false });
+    }, 100);
+  };
 
   // Check authentication status when page loads or regains focus
   useEffect(() => {
@@ -237,88 +250,13 @@ function DashboardContent({
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="my-rides" className="flex flex-col gap-[1rem]">
-            {/* Mobile-first: stack on mobile, horizontal on larger screens */}
-            <div className="flex flex-col gap-[1rem] sm:flex-row sm:justify-between sm:items-center">
-              <h2 className="font-semibold text-[clamp(1.25rem,2.5vw+0.75rem,1.5rem)] leading-tight">My Rides</h2>
-              <CreateRideDialog>
-                <Button className="w-full sm:w-auto">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Ride
-                </Button>
-              </CreateRideDialog>
-            </div>
-            <RidesList
-              initialRides={initialMyRides}
-              initialUser={session}
-              searchQuery=""
-              selectedCommunity={null}
-              selectedCommunityName={null}
-              filterType="all"
-              sortBy="newest"
-              showFilter={false}
-              showOnlyMyRides={true}
-            />
-          </TabsContent>
+          <Suspense fallback={<ContentSkeleton />}>
+            <SearchParamSync onTabChange={handleTabChange} />
 
-          <TabsContent value="rides" className="flex flex-col gap-[1rem]">
-            {/* Mobile-first: stack on mobile, horizontal on larger screens */}
-            <div className="flex flex-col gap-[1rem] sm:flex-row sm:justify-between sm:items-center">
-              <h2 className="font-semibold text-[clamp(1.25rem,2.5vw+0.75rem,1.5rem)] leading-tight">All Rides</h2>
-              {/* Mobile: filters on same row, button below. Desktop: all in same row */}
-              <div className="flex flex-col gap-[0.75rem] w-full sm:flex-row sm:items-center sm:gap-[0.5rem] sm:w-auto">
-                {/* Two dropdowns side-by-side on mobile and desktop */}
-                <div className="flex gap-[0.5rem] w-full sm:w-auto">
-                  {/* Sort Dropdown */}
-                  <Select
-                    value={sortBy}
-                    onValueChange={(value) => {
-                      setSortBy(value);
-                    }}
-                  >
-                    <SelectTrigger className="flex-1 sm:w-[140px]">
-                      <SelectValue placeholder="Sort" />
-                    </SelectTrigger>
-                    <SelectContent
-                      position="popper"
-                      side="bottom"
-                      className='max-h-[200px] lg:max-h-[250px] overflow-y-scroll'
-                      align="start"
-                      sideOffset={4}
-                      avoidCollisions={false}
-                    >
-                      <SelectItem value="newest">Newest First</SelectItem>
-                      <SelectItem value="oldest">Oldest First</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {/* Filter Dropdown */}
-                  <Select
-                    value={filterType}
-                    onValueChange={(value) => {
-                      setFilterType(value);
-                    }}
-                  >
-                    <SelectTrigger className="flex-1 sm:w-[160px]">
-                      <SelectValue placeholder="Filter" />
-                    </SelectTrigger>
-                    <SelectContent
-                      position="popper"
-                      side="bottom"
-                      align="center"
-                      sideOffset={4}
-                      avoidCollisions={false}
-                      className='max-h-[200px] lg:max-h-[250px] overflow-y-scroll'
-                    >
-                      <SelectItem value="all">All Rides</SelectItem>
-                      <SelectItem value="verified">Verified Only</SelectItem>
-                      <SelectItem value="offering">Offering Rides</SelectItem>
-                      <SelectItem value="seeking">Seeking Rides</SelectItem>
-                      <SelectItem value="girls_only">Girls Only</SelectItem>
-                      <SelectItem value="boys_only">Boys Only</SelectItem>
-                      <SelectItem value="both">Both</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+            <TabsContent value="my-rides" className="flex flex-col gap-[1rem]">
+              {/* Mobile-first: stack on mobile, horizontal on larger screens */}
+              <div className="flex flex-col gap-[1rem] sm:flex-row sm:justify-between sm:items-center">
+                <h2 className="font-semibold text-[clamp(1.25rem,2.5vw+0.75rem,1.5rem)] leading-tight">My Rides</h2>
                 <CreateRideDialog>
                   <Button className="w-full sm:w-auto">
                     <Plus className="w-4 h-4 mr-2" />
@@ -326,160 +264,215 @@ function DashboardContent({
                   </Button>
                 </CreateRideDialog>
               </div>
-            </div>
-            <RidesList
-              initialRides={initialRides}
-              initialUser={session}
-              searchQuery=""
-              selectedCommunity={null}
-              selectedCommunityName={null}
-              filterType={filterType}
-              onFilterTypeChange={setFilterType}
-              sortBy={sortBy}
-              onSortByChange={setSortBy}
-              showFilter={false}
-              onClearCommunity={() => {
-                setFilterType('all');
-              }}
-              onClearFilters={() => {
-                setFilterType('all');
-              }}
-            />
-          </TabsContent>
-
-          <TabsContent value="communities">
-            <CommunitiesSection
-              initialCommunities={initialCommunities}
-              initialUserCommunities={initialUserCommunities}
-              initialUser={session}
-              selectedCommunity={selectedCommunity}
-              selectedCommunityName={selectedCommunityName}
-              onSelectCommunity={(id, name) => {
-                setSelectedCommunity(id);
-                setSelectedCommunityName(name || null);
-                // Don't switch tabs - stay in communities tab
-              }}
-              onBackToCommunities={() => {
-                setSelectedCommunity(null);
-                setSelectedCommunityName(null);
-              }}
-            />
-          </TabsContent>
-
-          <TabsContent value="search">
-            {/* Mobile-first: adequate spacing */}
-            <div className="flex flex-col gap-[1rem] sm:flex-row sm:justify-between sm:items-center mb-[1rem]">
-              <h2 className="font-semibold text-[clamp(1.25rem,2.5vw+0.75rem,1.5rem)] leading-tight">Search Rides</h2>
-              {/* Two dropdowns side-by-side */}
-              <div className="flex flex-col gap-[0.75rem] w-full sm:flex-row sm:items-center sm:gap-[0.5rem] sm:w-auto">
-                <div className="flex gap-[0.5rem] w-full sm:w-auto">
-                  {/* Sort Dropdown */}
-                  <Select
-                    value={sortBy}
-                    onValueChange={(value) => {
-                      setSortBy(value);
-                    }}
-                  >
-                    <SelectTrigger className="flex-1 sm:w-[140px]">
-                      <SelectValue placeholder="Sort" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="newest">Newest First</SelectItem>
-                      <SelectItem value="oldest">Oldest First</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {/* Filter Dropdown */}
-                  <Select
-                    value={filterType}
-                    onValueChange={(value) => {
-                      setFilterType(value);
-                    }}
-                  >
-                    <SelectTrigger className="flex-1 sm:w-[160px]">
-                      <SelectValue placeholder="Filter" />
-                    </SelectTrigger>
-                    <SelectContent className='!overflow-y-auto !max-h-[15rem]' position="popper" side="bottom" align="start" sideOffset={4}>
-                      <SelectItem value="all">All Rides</SelectItem>
-                      <SelectItem value="verified">Verified Only</SelectItem>
-                      <SelectItem value="offering">Offering Rides</SelectItem>
-                      <SelectItem value="seeking">Seeking Rides</SelectItem>
-                      <SelectItem value="girls_only">Girls Only</SelectItem>
-                      <SelectItem value="boys_only">Boys Only</SelectItem>
-                      <SelectItem value="both">Both</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <CreateRideDialog>
-                  <Button className="w-full sm:w-auto">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create Ride
-                  </Button>
-                </CreateRideDialog>
-              </div>
-            </div>
-            <SearchBar
-              initialCommunities={initialCommunities}
-              onSearch={setSearchQuery}
-              onCommunitySelect={(id, name) => {
-                setSelectedCommunity(id);
-                setSelectedCommunityName(name || null);
-              }}
-            />
-            <div className="mt-6">
               <RidesList
-                initialRides={[]}
+                initialRides={initialMyRides}
                 initialUser={session}
-                searchQuery={searchQuery}
-                selectedCommunity={selectedCommunity}
-                selectedCommunityName={selectedCommunityName}
+                searchQuery=""
+                selectedCommunity={null}
+                selectedCommunityName={null}
+                filterType="all"
+                sortBy="newest"
+                showFilter={false}
+                showOnlyMyRides={true}
+              />
+            </TabsContent>
+
+            <TabsContent value="rides" className="flex flex-col gap-[1rem]">
+              {/* Mobile-first: stack on mobile, horizontal on larger screens */}
+              <div className="flex flex-col gap-[1rem] sm:flex-row sm:justify-between sm:items-center">
+                <h2 className="font-semibold text-[clamp(1.25rem,2.5vw+0.75rem,1.5rem)] leading-tight">All Rides</h2>
+                {/* Mobile: filters on same row, button below. Desktop: all in same row */}
+                <div className="flex flex-col gap-[0.75rem] w-full sm:flex-row sm:items-center sm:gap-[0.5rem] sm:w-auto">
+                  {/* Two dropdowns side-by-side on mobile and desktop */}
+                  <div className="flex gap-[0.5rem] w-full sm:w-auto">
+                    {/* Sort Dropdown */}
+                    <Select
+                      value={sortBy}
+                      onValueChange={(value) => {
+                        setSortBy(value);
+                      }}
+                    >
+                      <SelectTrigger className="flex-1 sm:w-[140px]">
+                        <SelectValue placeholder="Sort" />
+                      </SelectTrigger>
+                      <SelectContent
+                        position="popper"
+                        side="bottom"
+                        className='max-h-[200px] lg:max-h-[250px] overflow-y-scroll'
+                        align="start"
+                        sideOffset={4}
+                        avoidCollisions={false}
+                      >
+                        <SelectItem value="newest">Newest First</SelectItem>
+                        <SelectItem value="oldest">Oldest First</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {/* Filter Dropdown */}
+                    <Select
+                      value={filterType}
+                      onValueChange={(value) => {
+                        setFilterType(value);
+                      }}
+                    >
+                      <SelectTrigger className="flex-1 sm:w-[160px]">
+                        <SelectValue placeholder="Filter" />
+                      </SelectTrigger>
+                      <SelectContent
+                        position="popper"
+                        side="bottom"
+                        align="center"
+                        sideOffset={4}
+                        avoidCollisions={false}
+                        className='max-h-[200px] lg:max-h-[250px] overflow-y-scroll'
+                      >
+                        <SelectItem value="all">All Rides</SelectItem>
+                        <SelectItem value="verified">Verified Only</SelectItem>
+                        <SelectItem value="offering">Offering Rides</SelectItem>
+                        <SelectItem value="seeking">Seeking Rides</SelectItem>
+                        <SelectItem value="girls_only">Girls Only</SelectItem>
+                        <SelectItem value="boys_only">Boys Only</SelectItem>
+                        <SelectItem value="both">Both</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <CreateRideDialog>
+                    <Button className="w-full sm:w-auto">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create Ride
+                    </Button>
+                  </CreateRideDialog>
+                </div>
+              </div>
+              <RidesList
+                initialRides={initialRides}
+                initialUser={session}
+                searchQuery=""
+                selectedCommunity={null}
+                selectedCommunityName={null}
                 filterType={filterType}
                 onFilterTypeChange={setFilterType}
                 sortBy={sortBy}
                 onSortByChange={setSortBy}
                 showFilter={false}
                 onClearCommunity={() => {
-                  setSelectedCommunity(null);
-                  setSelectedCommunityName(null);
+                  setFilterType('all');
                 }}
                 onClearFilters={() => {
-                  setSelectedCommunity(null);
-                  setSelectedCommunityName(null);
-                  setSearchQuery('');
                   setFilterType('all');
                 }}
               />
-            </div>
-          </TabsContent>
+            </TabsContent>
+
+            <TabsContent value="communities">
+              <CommunitiesSection
+                initialCommunities={initialCommunities}
+                initialUserCommunities={initialUserCommunities}
+                initialUser={session}
+                selectedCommunity={selectedCommunity}
+                selectedCommunityName={selectedCommunityName}
+                onSelectCommunity={(id, name) => {
+                  setSelectedCommunity(id);
+                  setSelectedCommunityName(name || null);
+                  // Don't switch tabs - stay in communities tab
+                }}
+                onBackToCommunities={() => {
+                  setSelectedCommunity(null);
+                  setSelectedCommunityName(null);
+                }}
+              />
+            </TabsContent>
+
+            <TabsContent value="search">
+              {/* Mobile-first: adequate spacing */}
+              <div className="flex flex-col gap-[1rem] sm:flex-row sm:justify-between sm:items-center mb-[1rem]">
+                <h2 className="font-semibold text-[clamp(1.25rem,2.5vw+0.75rem,1.5rem)] leading-tight">Search Rides</h2>
+                {/* Two dropdowns side-by-side */}
+                <div className="flex flex-col gap-[0.75rem] w-full sm:flex-row sm:items-center sm:gap-[0.5rem] sm:w-auto">
+                  <div className="flex gap-[0.5rem] w-full sm:w-auto">
+                    {/* Sort Dropdown */}
+                    <Select
+                      value={sortBy}
+                      onValueChange={(value) => {
+                        setSortBy(value);
+                      }}
+                    >
+                      <SelectTrigger className="flex-1 sm:w-[140px]">
+                        <SelectValue placeholder="Sort" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="newest">Newest First</SelectItem>
+                        <SelectItem value="oldest">Oldest First</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {/* Filter Dropdown */}
+                    <Select
+                      value={filterType}
+                      onValueChange={(value) => {
+                        setFilterType(value);
+                      }}
+                    >
+                      <SelectTrigger className="flex-1 sm:w-[160px]">
+                        <SelectValue placeholder="Filter" />
+                      </SelectTrigger>
+                      <SelectContent className='!overflow-y-auto !max-h-[15rem]' position="popper" side="bottom" align="start" sideOffset={4}>
+                        <SelectItem value="all">All Rides</SelectItem>
+                        <SelectItem value="verified">Verified Only</SelectItem>
+                        <SelectItem value="offering">Offering Rides</SelectItem>
+                        <SelectItem value="seeking">Seeking Rides</SelectItem>
+                        <SelectItem value="girls_only">Girls Only</SelectItem>
+                        <SelectItem value="boys_only">Boys Only</SelectItem>
+                        <SelectItem value="both">Both</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <CreateRideDialog>
+                    <Button className="w-full sm:w-auto">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create Ride
+                    </Button>
+                  </CreateRideDialog>
+                </div>
+              </div>
+              <SearchBar
+                initialCommunities={initialCommunities}
+                onSearch={setSearchQuery}
+                onCommunitySelect={(id, name) => {
+                  setSelectedCommunity(id);
+                  setSelectedCommunityName(name || null);
+                }}
+              />
+              <div className="mt-6">
+                <RidesList
+                  initialRides={[]}
+                  initialUser={session}
+                  searchQuery={searchQuery}
+                  selectedCommunity={selectedCommunity}
+                  selectedCommunityName={selectedCommunityName}
+                  filterType={filterType}
+                  onFilterTypeChange={setFilterType}
+                  sortBy={sortBy}
+                  onSortByChange={setSortBy}
+                  showFilter={false}
+                  onClearCommunity={() => {
+                    setSelectedCommunity(null);
+                    setSelectedCommunityName(null);
+                  }}
+                  onClearFilters={() => {
+                    setSelectedCommunity(null);
+                    setSelectedCommunityName(null);
+                    setSearchQuery('');
+                    setFilterType('all');
+                  }}
+                />
+              </div>
+            </TabsContent>
+          </Suspense>
         </Tabs>
       </main>
     </div>
   );
 }
 
-// Wrapper component with Suspense for useSearchParams
 export default function DashboardClient(props: DashboardClientProps) {
-  return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-background">
-        <div className="container mx-auto px-4 py-8 max-w-7xl">
-          <div className="space-y-6">
-            <div className="h-12 bg-muted/50 rounded-md animate-pulse-slow" />
-            <div className="h-10 bg-muted/50 rounded-md w-1/3 animate-pulse-slow" />
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div key={i} className="border rounded-lg p-4 space-y-3">
-                  <div className="h-4 bg-muted rounded w-1/3 mb-2" />
-                  <div className="h-3 bg-muted rounded w-2/3" />
-                  <div className="h-20 bg-muted rounded" />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    }>
-      <DashboardContent {...props} />
-    </Suspense>
-  );
+  return <DashboardContent {...props} />;
 }
-
