@@ -39,7 +39,7 @@ export default function SafetyNoticeModal() {
                         Safety Notice
                     </AlertDialogTitle>
                     <AlertDialogDescription className="text-base text-muted-foreground leading-relaxed ">
-                        "Please make sure to verify the people you&apos;re traveling with. We&apos;ve just started out and won&apos;t be responsible for any issues. Stay safe ❤️"
+                        Please make sure to verify the people you&apos;re traveling with. We&apos;ve just started out and won&apos;t be responsible for any issues. Stay safe ❤️
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter className="sm:justify-center mt-6">
