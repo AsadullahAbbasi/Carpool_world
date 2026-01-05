@@ -51,6 +51,7 @@ export interface ServerRide {
   profiles?: {
     full_name: string;
     nic_verified?: boolean;
+    disable_auto_expiry?: boolean;
   } | null;
 }
 
