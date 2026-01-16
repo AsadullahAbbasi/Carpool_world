@@ -40,13 +40,14 @@ const Navbar = ({ onLogout, isAuthenticated = true }: NavbarProps) => {
     try {
       const { profile: profileData } = await profileApi.getProfile();
       if (profileData) {
+
         setProfile({
           full_name: profileData.fullName || '',
           avatar_url: profileData.avatarUrl || null,
         });
       }
     } catch (error) {
-      console.error('Error fetching profile:', error);
+
     }
   };
 

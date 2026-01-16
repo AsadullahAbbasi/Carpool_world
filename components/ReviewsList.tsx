@@ -33,7 +33,7 @@ const ReviewsList = ({ rideId, driverId }: ReviewsListProps) => {
                 const data = await reviewsApi.getReviews({ rideId, driverId });
                 setReviews(data.reviews);
             } catch (error) {
-                console.error('Failed to fetch reviews:', error);
+
             } finally {
                 setLoading(false);
             }
@@ -96,8 +96,8 @@ const ReviewsList = ({ rideId, driverId }: ReviewsListProps) => {
                                         <Star
                                             key={star}
                                             className={`w-4 h-4 ${star <= review.rating
-                                                    ? 'fill-yellow-400 text-yellow-400'
-                                                    : 'text-muted/20'
+                                                ? 'fill-yellow-400 text-yellow-400'
+                                                : 'text-muted/20'
                                                 }`}
                                         />
                                     ))}

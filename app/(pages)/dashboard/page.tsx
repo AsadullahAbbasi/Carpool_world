@@ -1,6 +1,8 @@
 import { getServerUser, getServerRides, getServerCommunities, getServerUserCommunities } from '@/lib/server-data';
 import DashboardClient from '@/components/DashboardClient';
 
+export const dynamic = 'force-dynamic';
+
 // Loading skeleton for Suspense boundary
 function DashboardSkeleton() {
   return (

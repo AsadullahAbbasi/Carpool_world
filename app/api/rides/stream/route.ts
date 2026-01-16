@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import { Profile } from '@/models/Profile';
+import { Ride } from '@/models/Ride';
 import { User } from '@/models/User';
 
 export const dynamic = 'force-dynamic';
@@ -28,7 +29,6 @@ function transformRide(ride: any, profile?: any) {
     profiles: profile ? {
       full_name: profile.fullName || profile.full_name,
       nic_verified: profile.nicVerified !== undefined ? profile.nicVerified : (profile.nic_verified !== undefined ? profile.nic_verified : false),
-      disable_auto_expiry: profile.disableAutoExpiry || false,
     } : null,
   };
 }
@@ -93,12 +93,6 @@ export async function GET(req: NextRequest) {
 
               // Fetch profile and user for the ride
               const profile = await Profile.findOne({ userId: ride.userId }).lean();
-
-              // Skip if user has auto-expiry disabled
-              if (profile?.disableAutoExpiry) {
-                continue;
-              }
-
               const user = await User.findById(ride.userId).lean();
               const transformedRide = transformRide(ride, profile || undefined);
 
@@ -118,7 +112,9 @@ export async function GET(req: NextRequest) {
       };
 
       const cleanup = async () => {
+        if (isClosed) return;
         isClosed = true;
+
         if (heartbeatInterval) {
           clearInterval(heartbeatInterval);
           heartbeatInterval = null;
@@ -138,7 +134,8 @@ export async function GET(req: NextRequest) {
         try {
           controller.close();
         } catch (error) {
-          console.error('Error closing controller:', error);
+          // Ignore error if controller is already closed
+          // console.error('Error closing controller:', error);
         }
       };
 

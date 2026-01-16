@@ -51,9 +51,9 @@ export async function sendVerificationEmail(email: string, token: string): Promi
         app_name: appName,
       }
     );
-    console.log('Verification email sent successfully:', result);
+
   } catch (error) {
-    console.error('Failed to send verification email:', error);
+
     throw new Error(`Failed to send verification email: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
@@ -98,9 +98,9 @@ export async function sendPasswordResetEmail(email: string, token: string): Prom
         app_name: appName,
       }
     );
-    console.log('Password reset email sent successfully:', result);
+
   } catch (error) {
-    console.error('Failed to send password reset email:', error);
+
     throw new Error(`Failed to send password reset email: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }

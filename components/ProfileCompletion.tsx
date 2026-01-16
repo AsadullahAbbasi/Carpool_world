@@ -39,7 +39,7 @@ const ProfileCompletion = () => {
       if (!data || !data.user) {
         // Only redirect on client side
         if (typeof window !== 'undefined') {
-          router.push('/auth');
+          router.replace('/auth');
         }
         return;
       }
@@ -60,24 +60,31 @@ const ProfileCompletion = () => {
           setNicRejectionReason(profile.nicRejectionReason);
         }
 
-        // If profile is already complete, redirect to dashboard (client-side only)
-        if (
+        // Check if profile is complete (either via flag or check fields)
+        const isComplete = profile.profileCompleted || (
           profile.fullName &&
-
           profile.phone &&
           profile.avatarUrl &&
           profile.gender
-        ) {
+        );
+
+        if (isComplete) {
           if (typeof window !== 'undefined') {
-            router.push('/dashboard');
+            localStorage.setItem('profileCompleted', 'true');
+            router.replace('/dashboard');
+            return;
+          }
+        } else {
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('profileCompleted');
           }
         }
       }
     } catch (error: any) {
-      console.error('Error fetching profile:', error);
+
       // Only redirect on client side
       if (typeof window !== 'undefined') {
-        router.push('/auth');
+        router.replace('/auth');
       }
     } finally {
       setInitialLoading(false);
@@ -86,6 +93,14 @@ const ProfileCompletion = () => {
 
   useEffect(() => {
     setMounted(true);
+    // Immediate check
+    if (typeof window !== 'undefined') {
+      const cachedCompleted = localStorage.getItem('profileCompleted');
+      if (cachedCompleted === 'true') {
+        router.replace('/dashboard');
+        return;
+      }
+    }
     fetchProfile();
   }, []);
 
@@ -165,14 +180,19 @@ const ProfileCompletion = () => {
         phone: normalizedPhone,
         avatarUrl: formData.avatarUrl,
         gender: formData.gender,
+        profileCompleted: true,
       });
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('profileCompleted', 'true');
+      }
 
       toast({
         title: '🎉 Profile Complete!',
         description: 'Your profile has been set up successfully!',
       });
 
-      router.push('/dashboard');
+      router.replace('/dashboard');
     } catch (error: any) {
       toast({
         title: 'Error',

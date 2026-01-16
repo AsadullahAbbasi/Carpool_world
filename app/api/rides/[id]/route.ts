@@ -35,17 +35,18 @@ function transformRide(ride: any, profile?: any) {
     seats_available: ride.seatsAvailable ?? ride.seats_available,
     description: ride.description,
     phone: ride.phone,
-    expires_at: ride.expiresAt ? new Date(ride.expiresAt).toISOString() : ride.expires_at,
-    is_archived: ride.isArchived || false,
+    expires_at: ride.expiresAt ? new Date(ride.expiresAt).toISOString() : (ride.expires_at || new Date().toISOString()),
+    is_archived: ride.isArchived || ride.is_archived || false,
     user_id: ride.userId || ride.user_id,
-    created_at: ride.createdAt ? new Date(ride.createdAt).toISOString() : ride.created_at,
-    updated_at: ride.updatedAt ? new Date(ride.updatedAt).toISOString() : ride.updated_at,
+    created_at: ride.createdAt ? new Date(ride.createdAt).toISOString() : (ride.created_at || new Date().toISOString()),
+    updated_at: ride.updatedAt ? new Date(ride.updatedAt).toISOString() : (ride.updated_at || ride.createdAt ? new Date(ride.createdAt).toISOString() : new Date().toISOString()),
     community_id: ride.communityId ?? ride.community_id,
     community_ids: ride.communityIds || ride.community_ids || [],
     recurring_days: ride.recurringDays || ride.recurring_days || [],
     profiles: profile ? {
-      full_name: profile.fullName || profile.full_name,
-      nic_verified: profile.nicVerified !== undefined ? profile.nicVerified : (profile.nic_verified !== undefined ? profile.nic_verified : false),
+      full_name: profile.fullName || profile.full_name || 'Unknown',
+      nic_verified: profile.nicVerified || profile.nic_verified || false,
+      disable_auto_expiry: profile.disableAutoExpiry || profile.disable_auto_expiry || false,
     } : null,
   };
 }
@@ -78,10 +79,10 @@ export const PUT = authMiddleware(async (req) => {
     const now = new Date();
     const today = new Date(now);
     today.setHours(0, 0, 0, 0); // Set to start of day
-    
+
     // Get current time in HH:MM format (24-hour)
     const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    
+
     const updateData: any = {
       // Always update rideDate to current date when updating a ride
       rideDate: today,
@@ -106,14 +107,7 @@ export const PUT = authMiddleware(async (req) => {
     if (data.recurringDays !== undefined) updateData.recurringDays = data.recurringDays || [];
 
     // Log timestamp changes for debugging
-    console.log('Updating ride timestamps', {
-      rideId,
-      prevCreatedAt: ride.createdAt,
-      prevUpdatedAt: ride.updatedAt,
-      newRideDate: today,
-      newRideTime: currentTime,
-      newUpdatedAt: now,
-    });
+
 
     // Use findByIdAndUpdate for database-level update
     const updatedRide = await Ride.findByIdAndUpdate(

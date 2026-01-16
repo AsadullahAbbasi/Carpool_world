@@ -84,7 +84,7 @@ const RidesList = ({
   const [loading, setLoading] = useState(initialRides.length === 0);
   const [currentUserId, setCurrentUserId] = useState<string | null>(initialUser?.id || null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(!!initialUser);
-  const [isProfileComplete, setIsProfileComplete] = useState(false);
+  const [isProfileComplete, setIsProfileComplete] = useState(true);
   const [editingRide, setEditingRide] = useState<Ride | null>(null);
   const [reviewingRide, setReviewingRide] = useState<Ride | null>(null);
   const [viewingReviewsRide, setViewingReviewsRide] = useState<Ride | null>(null);
@@ -137,7 +137,7 @@ const RidesList = ({
     if (initialUser) {
       setCurrentUserId(initialUser.id);
       setIsAuthenticated(true);
-      // Don't set userLoaded true yet, wait for profile check
+      setUserLoaded(true);
       // Check profile completion
       getCurrentUser();
     } else {
@@ -304,6 +304,16 @@ const RidesList = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, selectedCommunity, sortBy, filterType, currentUserId, showOnlyMyRides, userLoaded]);
 
+  useEffect(() => {
+    const handleRideCreatedEvent = (e: CustomEvent) => {
+      handleRideCreated(e.detail);
+    };
+    window.addEventListener('rideCreated', handleRideCreatedEvent as EventListener);
+    return () => {
+      window.removeEventListener('rideCreated', handleRideCreatedEvent as EventListener);
+    };
+  }, []);
+
   // Store current filter values in refs to avoid stale closures in SSE handler
   const filterRefs = useRef({ filterType, sortBy, selectedCommunity, searchQuery });
 
@@ -344,7 +354,6 @@ const RidesList = ({
 
             // Handle connection confirmation
             if (data.type === 'connected') {
-              console.log('Connected to real-time ride updates');
               return;
             }
 
@@ -543,10 +552,7 @@ const RidesList = ({
                     if (index === -1) {
                       return prev; // Ride not in filtered list
                     }
-                    // Remove expired ride from All Rides view UNLESS auto-expiry is disabled
-                    if (ride.profiles?.disable_auto_expiry) {
-                      return prev;
-                    }
+                    // Remove expired ride from All Rides view (it's no longer bookable)
                     // Users viewing My Rides will still see it with the reactivate option
                     return prev.filter((r) => r.id !== ride.id);
                   });
@@ -616,9 +622,6 @@ const RidesList = ({
     setRides(prev => prev.filter(r => r.id !== rideId));
     setAllRides(prev => prev.filter(r => r.id !== rideId));
 
-    // Notify other components
-    window.dispatchEvent(new CustomEvent('rideDeleted', { detail: rideId }));
-
     // Make API call in background
     try {
       await ridesApi.deleteRide(rideId);
@@ -644,11 +647,6 @@ const RidesList = ({
     }
   };
 
-  const handleRideDeleted = (rideId: string) => {
-    setRides(prev => prev.filter(r => r.id !== rideId));
-    setAllRides(prev => prev.filter(r => r.id !== rideId));
-  };
-
   const handleRideCreated = (newRide: any) => {
     // Optimistically add new ride
     setRides(prev => [newRide, ...prev]);
@@ -658,92 +656,22 @@ const RidesList = ({
   };
 
   const handleRideUpdated = (updatedRide: any) => {
-    // Check if ride should be included in the filtered list
-    // Use the same logic as in SSE handle message
-    let shouldInclude = true;
-
-    // Apply basic exclusion rules (archived/expired) unless showing "My Rides"
-    if (!showOnlyMyRides) {
-      const now = new Date();
-      const isActuallyExpired = updatedRide.expires_at && new Date(updatedRide.expires_at) <= now && !updatedRide.profiles?.disable_auto_expiry;
-      if (updatedRide.is_archived || isActuallyExpired) {
-        shouldInclude = false;
-      }
-    }
-
-    // Apply current filters
-    if (shouldInclude) {
-      if (filterType === 'verified' && !updatedRide.profiles?.nic_verified) {
-        shouldInclude = false;
-      }
-      if (filterType === 'girls_only' || filterType === 'boys_only' || filterType === 'both') {
-        if (updatedRide.gender_preference !== filterType) {
-          shouldInclude = false;
-        }
-      }
-      if (filterType === 'offering' || filterType === 'seeking') {
-        if (updatedRide.type !== filterType) {
-          shouldInclude = false;
-        }
-      }
-      if (selectedCommunity) {
-        if (!updatedRide.community_ids || !updatedRide.community_ids.includes(selectedCommunity)) {
-          shouldInclude = false;
-        }
-      }
-      if (searchQuery) {
-        const lowerQuery = searchQuery.toLowerCase();
-        const matchesSearch =
-          (updatedRide.start_location || '').toLowerCase().includes(lowerQuery) ||
-          (updatedRide.end_location || '').toLowerCase().includes(lowerQuery) ||
-          (updatedRide.description || '').toLowerCase().includes(lowerQuery);
-        if (!matchesSearch) {
-          shouldInclude = false;
-        }
-      }
-    }
-
-    // Update allRides
-    setAllRides(prev => {
-      const exists = prev.some(r => r.id === updatedRide.id);
-      if (exists) {
-        return prev.map(r => r.id === updatedRide.id ? updatedRide : r);
-      }
-      return [updatedRide, ...prev];
-    });
-
-    // Update filtered rides
-    setRides(prev => {
-      const exists = prev.some(r => r.id === updatedRide.id);
-      if (exists) {
-        if (!shouldInclude) {
-          return prev.filter(r => r.id !== updatedRide.id);
-        }
-        const updated = prev.map(r => r.id === updatedRide.id ? updatedRide : r);
-        return applySortToRides(updated, sortBy);
-      } else {
-        if (shouldInclude) {
-          const updated = [updatedRide, ...prev];
-          return applySortToRides(updated, sortBy);
-        }
-        return prev;
-      }
-    });
+    // Optimistically update ride
+    setRides(prev => prev.map(r => r.id === updatedRide.id ? updatedRide : r));
+    setAllRides(prev => prev.map(r => r.id === updatedRide.id ? updatedRide : r));
+    // Refresh to sync with server without flashing the loading skeleton
+    fetchRides(true);
   };
 
   // Helper functions for expiry
   const isRideExpired = (ride: Ride): boolean => {
     if (ride.is_archived) return true;
-    if (ride.profiles?.disable_auto_expiry) return false;
     const expiresAt = new Date(ride.expires_at);
     return expiresAt < new Date();
   };
 
   // Calculate time remaining for a ride (in minutes)
-  const getTimeRemaining = (ride: Ride): { minutes: number; seconds: number; expired: boolean; isForever?: boolean } => {
-    if (ride.profiles?.disable_auto_expiry) {
-      return { minutes: 0, seconds: 0, expired: false, isForever: true };
-    }
+  const getTimeRemaining = (ride: Ride): { minutes: number; seconds: number; expired: boolean } => {
     const expiresAt = new Date(ride.expires_at);
     const now = new Date();
     const diff = expiresAt.getTime() - now.getTime();
@@ -773,7 +701,6 @@ const RidesList = ({
         rideDate: currentDate, // Update ride date to current date when renewing
         expiresAt: newExpiresAt.toISOString(),
         isArchived: false,
-        emailSent: false, // Reset email flag so user gets notified again if it expires
       });
 
       toast({
@@ -792,13 +719,6 @@ const RidesList = ({
 
       // Skip loading skeleton to avoid UI flash
       fetchRides(true);
-
-      // Notify other components
-      const { rides: fetchedRides }: any = await ridesApi.getRides({ userId: currentUserId || undefined });
-      const updatedRide = fetchedRides.find((r: any) => r.id === ride.id);
-      if (updatedRide) {
-        window.dispatchEvent(new CustomEvent('rideUpdated', { detail: updatedRide }));
-      }
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -831,13 +751,6 @@ const RidesList = ({
         description: 'Your ride has been archived',
       });
       fetchRides();
-
-      // Notify other components
-      const { rides: fetchedRides }: any = await ridesApi.getRides({ userId: currentUserId || undefined });
-      const updatedRide = fetchedRides.find((r: any) => r.id === ride.id);
-      if (updatedRide) {
-        window.dispatchEvent(new CustomEvent('rideUpdated', { detail: updatedRide }));
-      }
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -846,29 +759,6 @@ const RidesList = ({
       });
     }
   };
-
-  // Set up event listeners for ride changes (must be after handler definitions)
-  useEffect(() => {
-    const handleRideCreatedEvent = (e: any) => {
-      handleRideCreated(e.detail);
-    };
-    const handleRideUpdatedEvent = (e: any) => {
-      handleRideUpdated(e.detail);
-    };
-    const handleRideDeletedEvent = (e: any) => {
-      handleRideDeleted(e.detail);
-    };
-
-    window.addEventListener('rideCreated', handleRideCreatedEvent);
-    window.addEventListener('rideUpdated', handleRideUpdatedEvent);
-    window.addEventListener('rideDeleted', handleRideDeletedEvent);
-
-    return () => {
-      window.removeEventListener('rideCreated', handleRideCreatedEvent);
-      window.removeEventListener('rideUpdated', handleRideUpdatedEvent);
-      window.removeEventListener('rideDeleted', handleRideDeletedEvent);
-    };
-  }, []);
 
   const handleReviewClick = async (ride: Ride) => {
     try {
@@ -993,7 +883,7 @@ const RidesList = ({
     }
   };
 
-  const actionsDisabled = userLoaded && (!isAuthenticated || !isProfileComplete);
+  const actionsDisabled = !isAuthenticated || !isProfileComplete;
   const getActionsDisabledMessage = () => {
     if (!isAuthenticated) {
       return 'Sign in to contact, review, or view reviews.';
@@ -1189,7 +1079,7 @@ const RidesList = ({
                     <div className="flex items-start justify-between gap-[0.5rem]">
                       <div className="flex-1">
                         {/* Mobile-first: wrap badges vertically on small screens */}
-                        <CardTitle className="flex items-center gap-[0.5rem] flex-wrap">
+                        <CardTitle className="flex items-center gap-[0.5rem] flex-wrap tracking-normal">
                           <Badge variant={ride.type === 'offering' ? 'default' : 'secondary'}>
                             {ride.type === 'offering' ? 'Offering Ride' : 'Seeking Ride'}
                           </Badge>
@@ -1200,6 +1090,11 @@ const RidesList = ({
                           ) : ride.profiles && (
                             <Badge variant="outline" className="text-xs">
                               NIC Not Verified
+                            </Badge>
+                          )}
+                          {ride.profiles?.disable_auto_expiry && (
+                            <Badge variant="default" className="text-xs bg-green-600 hover:bg-green-700">
+                              Always Active
                             </Badge>
                           )}
                           {/* Gender Preference Badge */}
@@ -1215,16 +1110,10 @@ const RidesList = ({
                             </Badge>
                           )}
                           {/* Expiration countdown badge */}
-                          {ride.profiles?.disable_auto_expiry ? (
-                            <Badge variant="outline" className="text-xs bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/30 dark:text-blue-200 dark:border-blue-700">
-                              ♾️ Always Active
+                          {!showOnlyMyRides && !isRideExpired(ride) && getTimeRemaining(ride).minutes <= 30 && (
+                            <Badge variant="outline" className={`text-xs ${getTimeRemaining(ride).minutes <= 5 ? 'bg-red-100 text-red-800 border-red-300' : 'bg-yellow-100 text-yellow-800 border-yellow-300'}`}>
+                              ⏱️ Expires in {getTimeRemaining(ride).minutes}m
                             </Badge>
-                          ) : (
-                            !showOnlyMyRides && !isRideExpired(ride) && getTimeRemaining(ride).minutes <= 30 && (
-                              <Badge variant="outline" className={`text-xs ${getTimeRemaining(ride).minutes <= 5 ? 'bg-red-100 text-red-800 border-red-300' : 'bg-yellow-100 text-yellow-800 border-yellow-300'}`}>
-                                ⏱️ Expires in {getTimeRemaining(ride).minutes}m
-                              </Badge>
-                            )
                           )}
                         </CardTitle>
                         <CardDescription className="mt-[0.5rem] text-[clamp(0.95rem,1.6vw+0.55rem,1.0625rem)] sm:text-base leading-relaxed">
@@ -1260,7 +1149,7 @@ const RidesList = ({
                   {/* Mobile-first: adequate spacing for readability */}
                   <CardContent className="flex flex-col gap-[0.75rem] flex-1">
                     {/* Expired ride banner with reactivate switch */}
-                    {isRideExpired(ride) && !ride.is_archived && !ride.profiles?.disable_auto_expiry && currentUserId === ride.user_id && showOnlyMyRides && (
+                    {isRideExpired(ride) && !ride.is_archived && currentUserId === ride.user_id && showOnlyMyRides && (
                       <div className="bg-orange-50 border border-orange-200 rounded-md p-3 text-sm text-orange-800">
                         <div className="flex items-center justify-between">
                           <p className="font-medium">⏰ This ride has expired</p>

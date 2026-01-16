@@ -11,6 +11,7 @@ import { Profile } from '@/models/Profile';
 import { Ride } from '@/models/Ride';
 import { Community } from '@/models/Community';
 import { CommunityMember } from '@/models/CommunityMember';
+import mongoose from 'mongoose';
 
 export interface ServerUser {
   id: string;
@@ -272,6 +273,8 @@ export interface ServerCommunity {
   created_by: string;
   created_at: string;
   updated_at: string;
+  memberCount: number;
+  rideCount: number;
 }
 
 /**
@@ -389,6 +392,27 @@ export async function getServerCommunity(communityId: string): Promise<ServerCom
       return null;
     }
 
+    // Fetch counts in parallel
+    const queryConditions: any[] = [{ communityId: communityId }];
+    // If it's a valid ObjectId, also check for ObjectId type
+    if (mongoose.Types.ObjectId.isValid(communityId)) {
+      queryConditions.push({ communityId: new mongoose.Types.ObjectId(communityId) });
+    }
+
+    const [memberCount, rideCount] = await Promise.all([
+      CommunityMember.countDocuments({
+        $or: queryConditions
+      }),
+      Ride.countDocuments({
+        isArchived: { $ne: true },
+        $or: [
+          ...queryConditions,
+          { communityIds: communityId },
+          ...(mongoose.Types.ObjectId.isValid(communityId) ? [{ communityIds: new mongoose.Types.ObjectId(communityId) }] : [])
+        ]
+      })
+    ]);
+
     return {
       id: community._id.toString(),
       name: community.name,
@@ -396,6 +420,8 @@ export async function getServerCommunity(communityId: string): Promise<ServerCom
       created_by: community.createdBy,
       created_at: community.createdAt ? new Date(community.createdAt).toISOString() : new Date().toISOString(),
       updated_at: community.updatedAt ? new Date(community.updatedAt).toISOString() : new Date().toISOString(),
+      memberCount,
+      rideCount
     };
   } catch (error) {
     console.error('Server get community error:', error);

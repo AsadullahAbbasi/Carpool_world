@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { communitiesApi } from '@/lib/api-client';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -28,15 +27,13 @@ interface Community {
 
 const SearchBar = ({ initialCommunities = [], onSearch, onCommunitySelect }: SearchBarProps) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCommunity, setSelectedCommunity] = useState<string>('');
+  const [selectedCommunity, setSelectedCommunity] = useState<string>('all');
   const [communities, setCommunities] = useState<Community[]>(initialCommunities);
 
   useEffect(() => {
-    // Only fetch if we don't have initial data
     if (initialCommunities.length === 0) {
       fetchCommunities();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchCommunities = async () => {
@@ -47,45 +44,40 @@ const SearchBar = ({ initialCommunities = [], onSearch, onCommunitySelect }: Sea
       );
       setCommunities(sorted);
     } catch (error) {
-      console.error('Error fetching communities:', error);
+
     }
   };
 
-  const normalizeCommunity = (value: string) => {
-    if (!value || value === 'all') return '';
-    return value;
+  const applyFilters = () => {
+    const communityId = selectedCommunity === 'all' ? null : selectedCommunity;
+    const communityName = communities.find(c => c.id === communityId)?.name || null;
+
+    onSearch(searchQuery.trim());
+    onCommunitySelect(communityId, communityName);
   };
 
-  const applyFilters = (queryOverride?: string, communityOverride?: string) => {
-    const normalizedCommunity = normalizeCommunity(communityOverride ?? selectedCommunity);
-    const selectedComm = communities.find(c => c.id === normalizedCommunity);
-    const queryToUse = queryOverride !== undefined ? queryOverride : searchQuery;
-
-    onSearch(queryToUse);
-    onCommunitySelect(normalizedCommunity || null, selectedComm?.name || null);
-  };
-
-  const handleSearch = () => {
-    applyFilters();
-  };
-
-  const handleSearchClear = () => {
+  const handleClear = () => {
     setSearchQuery('');
-    applyFilters('');
+    onSearch('');
+    // Re-apply community filter without search query
+    const communityId = selectedCommunity === 'all' ? null : selectedCommunity;
+    const communityName = communities.find(c => c.id === communityId)?.name || null;
+    onCommunitySelect(communityId, communityName);
   };
 
   const handleCommunityChange = (value: string) => {
-    const normalized = normalizeCommunity(value);
-    setSelectedCommunity(normalized);
-    // Immediately apply filters when community changes
-    applyFilters(undefined, normalized);
+    setSelectedCommunity(value);
+    applyFilters();
   };
+
+  const hasText = searchQuery.trim().length > 0;
 
   return (
     <Card>
       <CardContent className="pt-6">
-        <div className="flex flex-col pt-4 gap-4 md:flex-row md:flex-wrap md:items-end">
-          <div className="flex flex-col gap-2 flex-1 min-w-[15rem]">
+        <div className="flex flex-col gap-6 md:flex-row md:items-end md:gap-8">
+          {/* Search Input */}
+          <div className="flex flex-col gap-2 flex-1 min-w-0 text-sm pt-3">
             <Label htmlFor="search">Search Rides</Label>
             <div className="relative">
               <Input
@@ -93,27 +85,49 @@ const SearchBar = ({ initialCommunities = [], onSearch, onCommunitySelect }: Sea
                 placeholder="Search by location, keywords..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                className="pr-10 h-12"
+                onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
+                className="h-12 pr-12 pl-4" // Right padding for icon
               />
-              <Button
-                size="icon"
-                variant="ghost"
-                className="absolute right-0 top-0 h-full px-3 hover:bg-transparent text-muted-foreground hover:text-primary"
-                onClick={searchQuery ? handleSearchClear : handleSearch}
-                aria-label={searchQuery ? 'Clear search' : 'Search'}
-              >
-                {searchQuery ? <X className="h-4 w-4" /> : <Search className="h-4 w-4" />}
-              </Button>
+
+              {/* Right-side Icon Container */}
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                {/* MOBILE: Always show Search icon (no clear button) */}
+                <div className="block lg:hidden">
+                  <Search className="h-5 w-5 text-muted-foreground" />
+                </div>
+
+                {/* DESKTOP: Show Search when empty, X when typing */}
+                <div className="hidden lg:block">
+                  {hasText ? (
+                    <button
+                      type="button"
+                      onClick={handleClear}
+                      className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-accent transition-colors"
+                      aria-label="Clear search"
+                    >
+                      <X className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                  ) : (
+                    <Search className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </div>
+              </div>
             </div>
           </div>
-          <div className="flex flex-col gap-2 flex-1 min-w-[12rem] md:max-w-[16rem]">
+
+          {/* Community Filter */}
+          <div className="flex flex-col gap-3 min-w-0 md:max-w-64">
             <Label htmlFor="community">Filter by Community</Label>
-            <Select value={selectedCommunity || 'all'} onValueChange={handleCommunityChange}>
-              <SelectTrigger id="community" className="h-12 items-center">
+            <Select value={selectedCommunity} onValueChange={handleCommunityChange}>
+              <SelectTrigger id="community" className="h-12">
                 <SelectValue placeholder="All communities" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent
+                className='max-h-[200px] overflow-y-auto'
+                side="bottom"
+                align="start"
+                sideOffset={5}
+                avoidCollisions={false}>
                 <SelectItem value="all">All communities</SelectItem>
                 {communities.map((community) => (
                   <SelectItem key={community.id} value={community.id}>

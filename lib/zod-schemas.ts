@@ -4,6 +4,7 @@
  */
 
 import { z } from 'zod';
+import { validateEmail } from './validation';
 
 // Pakistan phone number regex: 92XXXXXXXXXX or 0XXXXXXXXXX
 const pakistanPhoneRegex = /^(92[0-9]{10}|0[0-9]{10})$/;
@@ -79,14 +80,30 @@ export const rideSchema = z.object({
 
 // Signup schema
 export const signupSchema = z.object({
-  email: z.string().email('Invalid email address'),
+  email: z.string().email('Invalid email address').superRefine((val, ctx) => {
+    const validation = validateEmail(val);
+    if (!validation.valid) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: validation.error,
+      });
+    }
+  }),
   password: z.string().min(8, 'Password must be at least 8 characters'),
   fullName: z.string().min(1, 'Full name is required'),
 });
 
 // Login schema
 export const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
+  email: z.string().email('Invalid email address').superRefine((val, ctx) => {
+    const validation = validateEmail(val);
+    if (!validation.valid) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: validation.error,
+      });
+    }
+  }),
   password: z.string().min(1, 'Password is required'),
 });
 

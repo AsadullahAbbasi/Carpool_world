@@ -113,7 +113,7 @@ const CommunitiesSection = ({
       }
       return true;
     } catch (error) {
-      console.error('Error checking profile:', error);
+
       return false;
     }
   };
@@ -176,7 +176,7 @@ const CommunitiesSection = ({
       const userCommIds = response.communities || [];
       setUserCommunities(new Set(userCommIds || []));
     } catch (error: any) {
-      console.error('Error fetching user communities:', error);
+
     }
   };
 

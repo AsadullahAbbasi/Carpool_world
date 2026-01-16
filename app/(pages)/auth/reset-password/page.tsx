@@ -29,7 +29,7 @@ function ResetPasswordContent() {
         description: 'Password reset token is missing',
         variant: 'destructive',
       });
-      router.push('/auth');
+      router.replace('/auth');
     }
   }, [token, router, toast]);
 
@@ -73,7 +73,7 @@ function ResetPasswordContent() {
       });
 
       setTimeout(() => {
-        router.push('/auth');
+        router.replace('/auth');
       }, 2000);
     } catch (error: any) {
       toast({

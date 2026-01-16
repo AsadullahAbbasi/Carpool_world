@@ -31,6 +31,7 @@ import { MultiSelect } from '@/components/MultiSelect';
 import RideLimitAlert from '@/components/RideLimitAlert';
 import ProfileDialog from './ProfileDialog';
 import { useRouter } from 'next/navigation';
+import { sortDays } from '@/lib/utils';
 
 interface CreateRideDialogProps {
   children?: React.ReactNode;
@@ -271,7 +272,7 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
       const allCommunities = allCommunitiesResponse?.communities || [];
       setCommunities(allCommunities || []);
     } catch (error) {
-      console.error('Error fetching communities:', error);
+
     }
   };
 
@@ -339,7 +340,7 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
       }
       return true;
     } catch (error) {
-      console.error('Error checking profile:', error);
+
       return false; // Fail safe
     }
   };
@@ -421,7 +422,7 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
       // Open modal only after all checks pass
       setOpen(true);
     } catch (error) {
-      console.error('Error in handleTriggerClick checks:', error);
+
       // If any check fails, still try to open the modal (fail open)
       const freshFormData = getInitialFormData();
       if (preselectedCommunityId) {
@@ -515,7 +516,7 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
         description: formData.description || undefined,
         phone: phoneValue || undefined,
         communityIds: formData.community_ids.length > 0 ? formData.community_ids : undefined,
-        recurringDays: formData.recurring_days.length > 0 ? formData.recurring_days : undefined,
+        recurringDays: formData.recurring_days.length > 0 ? sortDays(formData.recurring_days) : undefined,
       });
 
       // Add expiresAt (not in schema but required for API)
@@ -716,8 +717,8 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
     setActiveRideAlertOpen(false);
     setExpiredRideAlertOpen(false);
     setOpen(false);
-    // Navigate to dashboard with my-rides tab active
-    router.replace('/dashboard?tab=my-rides');
+    // Navigate to dashboard with my-rides tab active - using push to preserve history
+    router.push('/dashboard?tab=my-rides');
   };
 
   const communityOptions = communities.map(c => ({

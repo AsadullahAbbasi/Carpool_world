@@ -76,7 +76,7 @@ export default function AdminPage() {
         setIsLoggedIn(false);
       }
     } catch (error) {
-      console.error('Auth check error:', error);
+
       setIsLoggedIn(false);
     } finally {
       setCheckingAuth(false);
@@ -136,7 +136,7 @@ export default function AdminPage() {
         description: 'You have been logged out',
       });
     } catch (error) {
-      console.error('Logout error:', error);
+
     }
   };
 
@@ -167,7 +167,7 @@ export default function AdminPage() {
         }
       }
     } catch (error: any) {
-      console.error('Load profiles error:', error);
+
       if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
         setIsLoggedIn(false);
       }
@@ -271,7 +271,7 @@ export default function AdminPage() {
         setCommunityRequests(data.requests || []);
       }
     } catch (error) {
-      console.error('Error loading community requests:', error);
+
     } finally {
       setLoadingRequests(false);
     }

@@ -104,7 +104,7 @@ const Auth = () => {
           try {
             await sendPasswordResetEmail(email, response.resetToken);
           } catch (emailError: any) {
-            console.error('Failed to send password reset email:', emailError);
+
             const errorMessage = emailError?.message || 'Unknown error';
 
             // Check if it's a configuration error
@@ -163,7 +163,7 @@ const Auth = () => {
         try {
           await sendVerificationEmail(email, response.verificationToken);
         } catch (emailError: any) {
-          console.error('Failed to send verification email:', emailError);
+
           const errorMessage = emailError?.message || 'Unknown error';
 
           // Check if it's a configuration error

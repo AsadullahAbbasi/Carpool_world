@@ -1,11 +1,10 @@
 'use client';
 
-import { useEffect, useState, Suspense, useRef } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Navbar from '@/components/Navbar';
 import RidesList from '@/components/RidesList';
 import CommunitiesSection from '@/components/CommunitiesSection';
@@ -79,33 +78,18 @@ interface DashboardClientProps {
   initialUserCommunities: string[];
 }
 
-// Granular skeleton for the content area (rides etc)
-function ContentSkeleton() {
+function ContentSkeleton({ count = 6 }: { count?: number }) {
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {[1, 2, 3, 4, 5, 6].map((i) => (
+      {Array.from({ length: count }).map((_, i) => (
         <div key={i} className="border rounded-lg p-4 space-y-3">
-          <div className="h-4 bg-muted rounded w-1/3 mb-2" />
-          <div className="h-3 bg-muted rounded w-2/3" />
-          <div className="h-20 bg-muted rounded" />
+          <Skeleton className="h-4 w-1/3" />
+          <Skeleton className="h-3 w-2/3" />
+          <Skeleton className="h-20 w-full" />
         </div>
       ))}
     </div>
   );
-}
-
-// Component that syncs tab state with URL search params
-function SearchParamSync({ onTabChange }: { onTabChange: (tab: string) => void }) {
-  const searchParams = useSearchParams();
-
-  useEffect(() => {
-    const tabParam = searchParams.get('tab');
-    if (tabParam && ['rides', 'my-rides', 'communities', 'search'].includes(tabParam)) {
-      onTabChange(tabParam);
-    }
-  }, [searchParams, onTabChange]);
-
-  return null;
 }
 
 function DashboardContent({
@@ -116,26 +100,45 @@ function DashboardContent({
   initialCommunities,
   initialUserCommunities,
 }: DashboardClientProps) {
+  const searchParams = useSearchParams();
   const [session, setSession] = useState<ServerUser | null>(initialUser);
   const [profile, setProfile] = useState<ServerProfile | null>(initialProfile);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCommunity, setSelectedCommunity] = useState<string | null>(null);
   const [selectedCommunityName, setSelectedCommunityName] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('communities');
+  // Initialize from URL or default to 'communities'
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'communities');
   const [filterType, setFilterType] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
+
   const router = useRouter();
   const { toast } = useToast();
 
-  const handleTabChange = (tab: string) => {
-    setActiveTab(tab);
-    // Clear the tab parameter from URL so refreshing goes back to communities
-    setTimeout(() => {
-      router.replace('/dashboard', { scroll: false });
-    }, 100);
+  // Sync active tab → URL (only when user changes tab)
+  useEffect(() => {
+    const currentTabParam = searchParams.get('tab');
+
+    // Only update URL if it doesn't match current state (and state isn't default 'communities' with no param)
+    if (currentTabParam !== activeTab) {
+      const newParams = new URLSearchParams(searchParams.toString());
+      newParams.set('tab', activeTab);
+      router.push(`/dashboard?${newParams.toString()}`, { scroll: false });
+    }
+  }, [activeTab, searchParams, router]);
+
+  // Handle manual tab clicks
+  const handleTabChange = (newTab: string) => {
+    if (newTab === activeTab) return;
+
+    setActiveTab(newTab);
+
+    if (newTab !== 'communities') {
+      setSelectedCommunity(null);
+      setSelectedCommunityName(null);
+    }
   };
 
-  // Check authentication status when page loads or regains focus
+  // Auth check (unchanged)
   useEffect(() => {
     const checkAuthStatus = async () => {
       try {
@@ -148,25 +151,16 @@ function DashboardContent({
           setProfile(null);
         }
       } catch (error) {
-        // User is not authenticated
         setSession(null);
         setProfile(null);
       }
     };
 
-    // Check on mount
     checkAuthStatus();
 
-    // Check when window regains focus (user returns from auth page)
-    const handleFocus = () => {
-      checkAuthStatus();
-    };
-
-    // Check when navigating back to the page
+    const handleFocus = () => checkAuthStatus();
     const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        checkAuthStatus();
-      }
+      if (!document.hidden) checkAuthStatus();
     };
 
     window.addEventListener('focus', handleFocus);
@@ -184,12 +178,10 @@ function DashboardContent({
       setSession(null);
       setProfile(null);
 
-      // Stay on dashboard (dashboard is public), but ensure we are not on an auth-only tab.
       if (activeTab === 'my-rides') {
         setActiveTab('rides');
       }
 
-      // Clean URL (and prevent navigating away)
       router.replace('/dashboard', { scroll: false });
     } catch (error: any) {
       toast({
@@ -204,11 +196,10 @@ function DashboardContent({
     <div className="min-h-screen bg-background">
       <Navbar onLogout={handleLogout} isAuthenticated={!!session} />
 
-      {/* Mobile-first: responsive padding and spacing */}
       <main className="container mx-auto px-[1rem] py-[1.5rem] pb-24 max-w-7xl sm:px-[1.5rem] sm:py-[2rem] md:pb-[2rem]">
         {session && <ProfileCompletionBanner />}
+
         <div className="mb-[1.5rem] sm:mb-[2rem]">
-          {/* Fluid heading with gradient */}
           <h1 className="font-bold mb-[0.5rem] bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent text-[clamp(1.75rem,4vw+1rem,2.5rem)] leading-tight">
             Find Your Ride
           </h1>
@@ -217,46 +208,31 @@ function DashboardContent({
           </p>
         </div>
 
-        {/* Mobile-first tabs with adequate spacing */}
-        <Tabs
-          value={activeTab}
-          onValueChange={(value) => {
-            setActiveTab(value);
-            if (value === 'communities') {
-              // Reset search context when returning to communities tab
-              setSelectedCommunity(null);
-              setSelectedCommunityName(null);
-            }
-          }}
-          className="flex flex-col gap-[1.5rem] sm:gap-[1.25rem]"
-        >
-          {/* Touch-friendly tab list on mobile */}
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col gap-[1.5rem] sm:gap-[1.25rem]">
           <TabsList className={`grid w-full max-w-2xl h-auto p-[0.25rem] ${session ? 'grid-cols-4' : 'grid-cols-3'}`}>
             <TabsTrigger value="rides" className="flex min-w-0 items-center gap-[0.375rem] text-sm min-h-[2.75rem] px-[0.5rem] sm:min-h-[2.5rem] sm:gap-[0.5rem] sm:text-sm">
               <Car className="w-[1.125rem] h-[1.125rem] sm:w-[1rem] sm:h-[1rem]" />
-              <span className="truncate max-w-[5.5rem] md:max-w-none md:[overflow:visible] md:[text-overflow:clip] md:whitespace-nowrap">All Rides</span>
+              <span className="truncate max-w-[5.5rem] md:max-w-none">All Rides</span>
             </TabsTrigger>
             {session && (
               <TabsTrigger value="my-rides" className="flex min-w-0 items-center gap-[0.375rem] text-sm min-h-[2.75rem] px-[0.5rem] sm:min-h-[2.5rem] sm:gap-[0.5rem] sm:text-sm">
                 <Car className="w-[1.125rem] h-[1.125rem] sm:w-[1rem] sm:h-[1rem]" />
-                <span className="truncate max-w-[5.5rem] md:max-w-none md:[overflow:visible] md:[text-overflow:clip] md:whitespace-nowrap">My Rides</span>
+                <span className="truncate max-w-[5.5rem] md:max-w-none">My Rides</span>
               </TabsTrigger>
             )}
             <TabsTrigger value="communities" className="flex min-w-0 items-center gap-[0.375rem] text-sm min-h-[2.75rem] px-[0.5rem] sm:min-h-[2.5rem] sm:gap-[0.5rem] sm:text-sm">
               <Users className="w-[1.125rem] h-[1.125rem] sm:w-[1rem] sm:h-[1rem]" />
-              <span className="truncate max-w-[6.5rem] md:max-w-none md:[overflow:visible] md:[text-overflow:clip] md:whitespace-nowrap">Communities</span>
+              <span className="truncate max-w-[6.5rem] md:max-w-none">Communities</span>
             </TabsTrigger>
             <TabsTrigger value="search" className="flex min-w-0 items-center gap-[0.375rem] text-sm min-h-[2.75rem] px-[0.5rem] sm:min-h-[2.5rem] sm:gap-[0.5rem] sm:text-sm">
               <Search className="w-[1.125rem] h-[1.125rem] sm:w-[1rem] sm:h-[1rem]" />
-              <span className="truncate max-w-[6rem] md:max-w-none md:[overflow:visible] md:[text-overflow:clip] md:whitespace-nowrap">Search Rides</span>
+              <span className="truncate max-w-[6rem] md:max-w-none">Search Rides</span>
             </TabsTrigger>
           </TabsList>
 
-          <Suspense fallback={<ContentSkeleton />}>
-            <SearchParamSync onTabChange={handleTabChange} />
-
-            <TabsContent value="my-rides" className="flex flex-col gap-[1rem]">
-              {/* Mobile-first: stack on mobile, horizontal on larger screens */}
+          <Suspense fallback={<ContentSkeleton count={activeTab === 'my-rides' ? 1 : 6} />}>
+            {/* All TabsContent remain exactly the same as in previous fast version */}
+            <TabsContent value="my-rides" forceMount={true} className="flex flex-col gap-[1rem] data-[state=inactive]:hidden">
               <div className="flex flex-col gap-[1rem] sm:flex-row sm:justify-between sm:items-center">
                 <h2 className="font-semibold text-[clamp(1.25rem,2.5vw+0.75rem,1.5rem)] leading-tight">My Rides</h2>
                 <CreateRideDialog>
@@ -279,54 +255,25 @@ function DashboardContent({
               />
             </TabsContent>
 
-            <TabsContent value="rides" className="flex flex-col gap-[1rem]">
-              {/* Mobile-first: stack on mobile, horizontal on larger screens */}
+            <TabsContent value="rides" forceMount={true} className="flex flex-col gap-[1rem] data-[state=inactive]:hidden">
               <div className="flex flex-col gap-[1rem] sm:flex-row sm:justify-between sm:items-center">
                 <h2 className="font-semibold text-[clamp(1.25rem,2.5vw+0.75rem,1.5rem)] leading-tight">All Rides</h2>
-                {/* Mobile: filters on same row, button below. Desktop: all in same row */}
                 <div className="flex flex-col gap-[0.75rem] w-full sm:flex-row sm:items-center sm:gap-[0.5rem] sm:w-auto">
-                  {/* Two dropdowns side-by-side on mobile and desktop */}
                   <div className="flex gap-[0.5rem] w-full sm:w-auto">
-                    {/* Sort Dropdown */}
-                    <Select
-                      value={sortBy}
-                      onValueChange={(value) => {
-                        setSortBy(value);
-                      }}
-                    >
-                      <SelectTrigger className="flex-1 sm:w-[140px]">
+                    <Select value={sortBy} onValueChange={setSortBy}>
+                      <SelectTrigger className="flex-1 sm:w-[140px] text-sm">
                         <SelectValue placeholder="Sort" />
                       </SelectTrigger>
-                      <SelectContent
-                        position="popper"
-                        side="bottom"
-                        className='max-h-[200px] lg:max-h-[250px] overflow-y-scroll'
-                        align="start"
-                        sideOffset={4}
-                        avoidCollisions={false}
-                      >
+                      <SelectContent>
                         <SelectItem value="newest">Newest First</SelectItem>
                         <SelectItem value="oldest">Oldest First</SelectItem>
                       </SelectContent>
                     </Select>
-                    {/* Filter Dropdown */}
-                    <Select
-                      value={filterType}
-                      onValueChange={(value) => {
-                        setFilterType(value);
-                      }}
-                    >
+                    <Select value={filterType} onValueChange={setFilterType}>
                       <SelectTrigger className="flex-1 sm:w-[160px]">
                         <SelectValue placeholder="Filter" />
                       </SelectTrigger>
-                      <SelectContent
-                        position="popper"
-                        side="bottom"
-                        align="center"
-                        sideOffset={4}
-                        avoidCollisions={false}
-                        className='max-h-[200px] lg:max-h-[250px] overflow-y-scroll'
-                      >
+                      <SelectContent className="max-h-[200px] overflow-y-auto">
                         <SelectItem value="all">All Rides</SelectItem>
                         <SelectItem value="verified">Verified Only</SelectItem>
                         <SelectItem value="offering">Offering Rides</SelectItem>
@@ -356,16 +303,12 @@ function DashboardContent({
                 sortBy={sortBy}
                 onSortByChange={setSortBy}
                 showFilter={false}
-                onClearCommunity={() => {
-                  setFilterType('all');
-                }}
-                onClearFilters={() => {
-                  setFilterType('all');
-                }}
+                onClearCommunity={() => setFilterType('all')}
+                onClearFilters={() => setFilterType('all')}
               />
             </TabsContent>
 
-            <TabsContent value="communities">
+            <TabsContent value="communities" forceMount={true} className="data-[state=inactive]:hidden">
               <CommunitiesSection
                 initialCommunities={initialCommunities}
                 initialUserCommunities={initialUserCommunities}
@@ -375,7 +318,6 @@ function DashboardContent({
                 onSelectCommunity={(id, name) => {
                   setSelectedCommunity(id);
                   setSelectedCommunityName(name || null);
-                  // Don't switch tabs - stay in communities tab
                 }}
                 onBackToCommunities={() => {
                   setSelectedCommunity(null);
@@ -384,20 +326,12 @@ function DashboardContent({
               />
             </TabsContent>
 
-            <TabsContent value="search">
-              {/* Mobile-first: adequate spacing */}
+            <TabsContent value="search" forceMount={true} className="data-[state=inactive]:hidden">
               <div className="flex flex-col gap-[1rem] sm:flex-row sm:justify-between sm:items-center mb-[1rem]">
                 <h2 className="font-semibold text-[clamp(1.25rem,2.5vw+0.75rem,1.5rem)] leading-tight">Search Rides</h2>
-                {/* Two dropdowns side-by-side */}
                 <div className="flex flex-col gap-[0.75rem] w-full sm:flex-row sm:items-center sm:gap-[0.5rem] sm:w-auto">
                   <div className="flex gap-[0.5rem] w-full sm:w-auto">
-                    {/* Sort Dropdown */}
-                    <Select
-                      value={sortBy}
-                      onValueChange={(value) => {
-                        setSortBy(value);
-                      }}
-                    >
+                    <Select value={sortBy} onValueChange={setSortBy}>
                       <SelectTrigger className="flex-1 sm:w-[140px]">
                         <SelectValue placeholder="Sort" />
                       </SelectTrigger>
@@ -406,17 +340,11 @@ function DashboardContent({
                         <SelectItem value="oldest">Oldest First</SelectItem>
                       </SelectContent>
                     </Select>
-                    {/* Filter Dropdown */}
-                    <Select
-                      value={filterType}
-                      onValueChange={(value) => {
-                        setFilterType(value);
-                      }}
-                    >
+                    <Select value={filterType} onValueChange={setFilterType}>
                       <SelectTrigger className="flex-1 sm:w-[160px]">
                         <SelectValue placeholder="Filter" />
                       </SelectTrigger>
-                      <SelectContent className='!overflow-y-auto !max-h-[15rem]' position="popper" side="bottom" align="start" sideOffset={4}>
+                      <SelectContent className="max-h-[200px] overflow-y-auto">
                         <SelectItem value="all">All Rides</SelectItem>
                         <SelectItem value="verified">Verified Only</SelectItem>
                         <SelectItem value="offering">Offering Rides</SelectItem>
@@ -435,6 +363,7 @@ function DashboardContent({
                   </CreateRideDialog>
                 </div>
               </div>
+
               <SearchBar
                 initialCommunities={initialCommunities}
                 onSearch={setSearchQuery}
@@ -443,9 +372,10 @@ function DashboardContent({
                   setSelectedCommunityName(name || null);
                 }}
               />
+
               <div className="mt-6">
                 <RidesList
-                  initialRides={[]}
+                  initialRides={initialRides}
                   initialUser={session}
                   searchQuery={searchQuery}
                   selectedCommunity={selectedCommunity}

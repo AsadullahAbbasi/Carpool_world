@@ -8,29 +8,21 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-// import connectDB from '@/lib/mongodb';
-// import { Profile } from '@/models/Profile';
-// import { User } from '@/models/User';
-// import { sendRideExpirationEmail } from '@/lib/resend-client';
+import connectDB from '@/lib/mongodb';
+import { Profile } from '@/models/Profile';
+import { User } from '@/models/User';
+import { sendRideExpirationEmail } from '@/lib/resend-client';
 
 // Allow function to run for up to 60 seconds
 export const maxDuration = 60;
 
-// Consolidated handler for both GET and POST
-async function handleCron(req: NextRequest) {
+// Vercel cron jobs automatically call this endpoint
+export async function POST(req: NextRequest) {
   try {
-    // Verify this is coming from Vercel Cron or authorized manual trigger
+    // Verify this is coming from Vercel Cron
     const authHeader = req.headers.get('authorization');
-    const searchParams = req.nextUrl.searchParams;
-    const queryToken = searchParams.get('token');
-    const secretToken = process.env.CRON_SECRET;
 
-    // Support both Bearer token in header and token in query param for easier testing
-    const isAuthorized =
-      (authHeader === `Bearer ${secretToken}`) ||
-      (queryToken === secretToken && secretToken !== undefined);
-
-    if (!isAuthorized) {
+    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
       console.warn('Unauthorized cron request');
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -38,9 +30,7 @@ async function handleCron(req: NextRequest) {
       );
     }
 
-    console.log('🔄 Starting expired rides check...');
 
-    /*
     // Connect to MongoDB
     const mongoose = await connectDB();
     const db = mongoose.connection.db;
@@ -59,7 +49,6 @@ async function handleCron(req: NextRequest) {
       emailSent: { $ne: true }, // Only process rides we haven't sent emails for
     }).toArray();
 
-    console.log(`📧 Found ${expiredRides.length} expired rides to process`);
 
     let emailsSent = 0;
     let emailsFailed = 0;
@@ -76,46 +65,37 @@ async function handleCron(req: NextRequest) {
         }
 
         // Send email
-        // Send email
-        // await sendRideExpirationEmail(
-        //   user.email,
-        //   profile?.fullName || 'User',
-        //   {
-        //     startLocation: ride.startLocation,
-        //     endLocation: ride.endLocation,
-        //     rideDate: ride.rideDate ? new Date(ride.rideDate).toISOString().split('T')[0] : '',
-        //     rideTime: ride.rideTime,
-        //     rideType: ride.type,
-        //   }
-        // );
+        await sendRideExpirationEmail(
+          user.email,
+          profile?.fullName || user.email || 'User',
+          {
+            startLocation: ride.startLocation,
+            endLocation: ride.endLocation,
+            rideDate: ride.rideDate ? new Date(ride.rideDate).toISOString().split('T')[0] : '',
+            rideTime: ride.rideTime,
+            rideType: ride.type,
+          }
+        );
 
         // Mark email as sent in database
-        // await ridesCollection.updateOne(
-        //   { _id: ride._id },
-        //   {
-        //     $set: {
-        //       emailSent: true,
-        //       emailSentAt: new Date(),
-        //       notificationSentAt: new Date(),
-        //     }
-        //   }
-        // );
+        await ridesCollection.updateOne(
+          { _id: ride._id },
+          {
+            $set: {
+              emailSent: true,
+              emailSentAt: new Date(),
+              notificationSentAt: new Date(),
+            }
+          }
+        );
 
-        // console.log(`✅ Email sent for ride ${ride._id}`);
-        // emailsSent++;
+        emailsSent++;
       } catch (error) {
         console.error(`❌ Failed to send email for ride ${ride._id}:`, error);
         emailsFailed++;
       }
     }
-    */
 
-    console.log('🚫 Cron job logic disabled - skipping DB check');
-    const expiredRides: any[] = [];
-    const emailsSent = 0;
-    const emailsFailed = 0;
-
-    console.log(`✨ Cron job completed - Sent: ${emailsSent}, Failed: ${emailsFailed}`);
 
     return NextResponse.json({
       success: true,
@@ -136,12 +116,4 @@ async function handleCron(req: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-export async function GET(req: NextRequest) {
-  return handleCron(req);
-}
-
-export async function POST(req: NextRequest) {
-  return handleCron(req);
 }

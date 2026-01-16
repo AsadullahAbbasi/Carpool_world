@@ -5,7 +5,7 @@
 
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY || 're_123');
+const resend = new Resend(process.env.RESEND_API_KEY);
 const fromEmail = process.env.RESEND_FROM_EMAIL || 'noreply@carpool.app';
 
 // Helper to validate email format before sending to Resend
@@ -192,7 +192,7 @@ export async function sendRideExpirationEmail(
     if (result.error) {
       console.error('Failed to send ride expiration email:', result.error);
     } else {
-      console.log('Ride expiration email sent successfully:', result.data);
+      // Success
     }
   } catch (error) {
     console.error('Error sending ride expiration email:', error);
@@ -348,7 +348,7 @@ export async function sendCommunityApprovalEmail(
       </html>
     `;
 
-    console.log(`📤 Sending Community Approval Email to: "${userEmail}" for community: "${communityName}"`);
+
 
     const result = await resend.emails.send({
       from: fromEmail,
@@ -360,7 +360,7 @@ export async function sendCommunityApprovalEmail(
     if (result.error) {
       console.error('❌ Resend Error (Community Approval):', result.error);
     } else {
-      console.log('✅ Community approval email sent successfully:', result.data);
+      // Success
     }
   } catch (error) {
     console.error('💥 Fatal Error sending community approval email:', error);
@@ -544,7 +544,7 @@ export async function sendNICRejectionEmail(
     if (result.error) {
       console.error('❌ Resend Error (NIC Rejection):', result.error);
     } else {
-      console.log('✅ NIC rejection email sent successfully:', result.data);
+      // Success
     }
   } catch (error) {
     console.error('💥 Fatal Error sending NIC rejection email:', error);
@@ -723,7 +723,7 @@ export async function sendCommunityRejectionEmail(
       </html>
     `;
 
-    console.log(`📤 Sending Community Rejection Email to: "${userEmail}" for community: "${communityName}"`);
+
 
     const result = await resend.emails.send({
       from: fromEmail,
@@ -735,7 +735,7 @@ export async function sendCommunityRejectionEmail(
     if (result.error) {
       console.error('❌ Resend Error (Community Rejection):', result.error);
     } else {
-      console.log('✅ Community rejection email sent successfully:', result.data);
+      // Success
     }
   } catch (error) {
     console.error('💥 Fatal Error sending community rejection email:', error);

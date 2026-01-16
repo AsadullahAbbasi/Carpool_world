@@ -19,6 +19,7 @@ export interface IProfile extends Document {
   nicRejectionReason?: string; // Reason for NIC rejection
   nicRejectedAt?: Date; // When NIC was rejected
   // Settings
+  profileCompleted?: boolean;
   disableAutoExpiry?: boolean; // If true, rides won't auto-expire
   createdAt: Date;
   updatedAt: Date;
@@ -59,6 +60,10 @@ const profileSchema = new Schema<IProfile>(
     nicRejectionReason: String, // Reason for NIC rejection
     nicRejectedAt: Date, // When NIC was rejected
     // Settings
+    profileCompleted: {
+      type: Boolean,
+      default: false,
+    },
     disableAutoExpiry: {
       type: Boolean,
       default: false,

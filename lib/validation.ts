@@ -2,15 +2,55 @@
  * Form validation utilities
  */
 
+// Common email domains for typo checking
+const COMMON_DOMAINS = [
+  'gmail.com',
+  'yahoo.com',
+  'hotmail.com',
+  'outlook.com',
+  'icloud.com',
+  'live.com',
+  'msn.com',
+];
+
+// Map of common typos to correct domains
+const DOMAIN_TYPOS: Record<string, string> = {
+  'gmial.com': 'gmail.com',
+  'gmal.com': 'gmail.com',
+  'gmai.com': 'gmail.com',
+  'gamil.com': 'gmail.com',
+  'gmil.com': 'gmail.com',
+  'yaho.com': 'yahoo.com',
+  'yahooo.com': 'yahoo.com',
+  'yhoo.com': 'yahoo.com',
+  'hotmial.com': 'hotmail.com',
+  'hotmal.com': 'hotmail.com',
+  'outlok.com': 'outlook.com',
+  'iclod.com': 'icloud.com',
+};
+
 // Email validation
 export const validateEmail = (email: string): { valid: boolean; error?: string } => {
   if (!email) {
     return { valid: false, error: 'Email is required' };
   }
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  // Stricter email regex
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
   if (!emailRegex.test(email)) {
     return { valid: false, error: 'Please enter a valid email address' };
   }
+
+  // Check for common typos
+  const domain = email.split('@')[1].toLowerCase();
+
+  if (DOMAIN_TYPOS[domain]) {
+    return {
+      valid: false,
+      error: `Did you mean ${DOMAIN_TYPOS[domain]}?`
+    };
+  }
+
   return { valid: true };
 };
 

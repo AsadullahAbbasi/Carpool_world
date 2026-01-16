@@ -89,7 +89,7 @@ const ProfileDialog = ({ open, onOpenChange, onProfileUpdate, completionMessage 
           setUserEmail('Not available');
         }
       } catch (emailError) {
-        console.error('Error fetching email:', emailError);
+
         setUserEmail('Not available');
       }
 

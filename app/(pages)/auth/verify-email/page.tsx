@@ -37,7 +37,7 @@ function VerifyEmailContent() {
         });
 
         setTimeout(() => {
-          router.push('/dashboard'); // Redirect to dashboard (auto-logged in)
+          router.replace('/dashboard'); // Redirect to dashboard (auto-logged in)
         }, 2000);
       } catch (error: any) {
         setStatus('error');

@@ -25,16 +25,18 @@ function isAdmin(req: NextRequest): boolean {
   // For now, we'll check the cookie
   const token = req.cookies.get('token')?.value;
   if (!token) {
-    console.log('[Admin Auth] No token found');
     return false;
   }
 
   // Simple check - in production, verify JWT properly
   try {
     const jwt = require('jsonwebtoken');
-    const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+    const JWT_SECRET = process.env.JWT_SECRET;
+    if (!JWT_SECRET) return false;
+
     const decoded = jwt.verify(token, JWT_SECRET);
-    const isAdminUser = decoded.email === 'asad';
+    // Check if user is admin based on email in env or role
+    const isAdminUser = decoded.email === process.env.ADMIN_EMAIL || decoded.userId === 'admin';
     return isAdminUser;
   } catch (error: any) {
     return false;
@@ -43,25 +45,9 @@ function isAdmin(req: NextRequest): boolean {
 
 const verifyNicSchema = z.object({
   profileId: z.string(),
-  nicNumber: z.string().optional(),
-  rejectionReason: z.string().optional(),
+  nicNumber: z.string().min(13).max(15),
   verified: z.boolean(),
-}).refine((data) => {
-  if (data.verified) {
-    return !!data.nicNumber && data.nicNumber.length >= 13 && data.nicNumber.length <= 15;
-  }
-  return true;
-}, {
-  message: "NIC number is required and must be valid when verifying",
-  path: ["nicNumber"],
-}).refine((data) => {
-  if (!data.verified) {
-    return !!data.rejectionReason && data.rejectionReason.length > 0;
-  }
-  return true;
-}, {
-  message: "Rejection reason is required when rejecting",
-  path: ["rejectionReason"],
+  rejectionReason: z.string().optional(),
 });
 
 export async function GET(req: NextRequest) {
@@ -129,16 +115,8 @@ export async function POST(req: NextRequest) {
     await connectDB();
 
     const body = await req.json();
-    const parseResult = verifyNicSchema.safeParse(body);
-
-    if (!parseResult.success) {
-      return NextResponse.json(
-        { error: 'Validation error', details: parseResult.error.errors },
-        { status: 400 }
-      );
-    }
-
-    const { profileId, nicNumber, verified, rejectionReason } = parseResult.data;
+    const data = verifyNicSchema.parse(body);
+    const { profileId, nicNumber, verified } = data;
 
     const profile = await Profile.findById(profileId);
     if (!profile) {
@@ -149,7 +127,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Validate NIC number format if verifying
-    if (verified && nicNumber) {
+    if (verified) {
       const validation = validateNIC(nicNumber);
       if (!validation.valid) {
         return NextResponse.json(
@@ -160,7 +138,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Handle images based on verification status
-    if (verified && nicNumber) {
+    if (verified) {
       // Move images from temporary fields to permanent fields
       if (profile.nicFrontImageUrl) {
         profile.front = profile.nicFrontImageUrl;
@@ -208,20 +186,20 @@ export async function POST(req: NextRequest) {
       profile.nicVerified = false;
 
       // Store rejection reason
-      profile.nicRejectionReason = rejectionReason || 'Your NIC verification was rejected. Please review and resubmit.';
+      profile.nicRejectionReason = data.rejectionReason || 'Your NIC verification was rejected. Please review and resubmit.';
       profile.nicRejectedAt = new Date();
     }
 
     await profile.save();
 
     // Send approval email if NIC was verified
-    if (verified && nicNumber) {
+    if (verified) {
       try {
         const user = await User.findById(profile.userId).lean();
         if (user && user.email && profile.nicNumber) {
           await sendNICApprovalEmail(
             user.email,
-            profile.fullName || 'User',
+            profile.fullName || user.email || 'User',
             profile.nicNumber
           );
         }
@@ -236,7 +214,7 @@ export async function POST(req: NextRequest) {
         if (user && user.email && profile.nicRejectionReason) {
           await sendNICRejectionEmail(
             user.email,
-            profile.fullName || 'User',
+            profile.fullName || user.email || 'User',
             profile.nicRejectionReason
           );
         }
@@ -269,3 +247,4 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+

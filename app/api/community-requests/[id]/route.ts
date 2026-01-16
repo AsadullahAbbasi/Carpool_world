@@ -115,29 +115,15 @@ export async function PUT(
 
       // Send approval email to requester
       try {
-        let userEmail = '';
-        let userName = 'User';
-
-        if (request.requestedBy === 'admin') {
-          userEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
-          userName = 'Admin';
-        } else if (request.requestedBy && /^[0-9a-fA-F]{24}$/.test(request.requestedBy)) {
-          const user = await User.findById(request.requestedBy).lean();
-          const profile = await Profile.findOne({ userId: request.requestedBy }).lean();
-          if (user) {
-            userEmail = user.email;
-            userName = profile?.fullName || 'User';
-          }
-        }
-
-        if (userEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail)) {
+        const user = await User.findById(request.requestedBy).lean();
+        const profile = await Profile.findOne({ userId: request.requestedBy }).lean();
+        
+        if (user && user.email) {
           await sendCommunityApprovalEmail(
-            userEmail,
-            userName,
+            user.email,
+            profile?.fullName || user.email || 'User',
             request.name
           );
-        } else if (userEmail) {
-          console.warn(`⚠️ Skipping community approval email: Invalid email format "${userEmail}"`);
         }
       } catch (emailError) {
         console.error('Failed to send community approval email:', emailError);
@@ -160,30 +146,16 @@ export async function PUT(
     // If rejected, send rejection email
     if (data.status === 'rejected') {
       try {
-        let userEmail = '';
-        let userName = 'User';
-
-        if (request.requestedBy === 'admin') {
-          userEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
-          userName = 'Admin';
-        } else if (request.requestedBy && /^[0-9a-fA-F]{24}$/.test(request.requestedBy)) {
-          const user = await User.findById(request.requestedBy).lean();
-          const profile = await Profile.findOne({ userId: request.requestedBy }).lean();
-          if (user) {
-            userEmail = user.email;
-            userName = profile?.fullName || 'User';
-          }
-        }
-
-        if (userEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail)) {
+        const user = await User.findById(request.requestedBy).lean();
+        const profile = await Profile.findOne({ userId: request.requestedBy }).lean();
+        
+        if (user && user.email) {
           await sendCommunityRejectionEmail(
-            userEmail,
-            userName,
+            user.email,
+            profile?.fullName || user.email || 'User',
             request.name,
             data.rejectionReason || 'Your community request does not meet our requirements at this time.'
           );
-        } else if (userEmail) {
-          console.warn(`⚠️ Skipping community rejection email: Invalid email format "${userEmail}"`);
         }
       } catch (emailError) {
         console.error('Failed to send community rejection email:', emailError);

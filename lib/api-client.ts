@@ -176,6 +176,7 @@ export interface Profile {
   gender?: string;
   nicNumber?: string;
   nicVerified?: boolean;
+  profileCompleted?: boolean;
   [key: string]: any;
 }
 
@@ -205,6 +206,7 @@ export const profileApi = {
     gender?: string;
     nicNumber?: string;
     disableAutoExpiry?: boolean;
+    profileCompleted?: boolean;
   }) => {
     const token = getAuthToken();
     const response = await fetch(`${API_BASE}/profiles`, {

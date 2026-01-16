@@ -76,7 +76,9 @@ export const GET = async (req: NextRequest) => {
       { $sort: { createdAt: -1 } }
     ]);
 
+
     return NextResponse.json({
+      debug_raw: communities.slice(0, 3),
       communities: communities.map((c: any) => ({
         id: c._id.toString(),
         name: c.name,
