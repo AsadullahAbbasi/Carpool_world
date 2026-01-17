@@ -78,7 +78,6 @@ export const GET = async (req: NextRequest) => {
 
 
     return NextResponse.json({
-      debug_raw: communities.slice(0, 3),
       communities: communities.map((c: any) => ({
         id: c._id.toString(),
         name: c.name,

@@ -100,7 +100,7 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
   const [loading, setLoading] = useState(false);
   const [communities, setCommunities] = useState<Array<{ id: string; name: string }>>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [disableAutoExpiry, setDisableAutoExpiry] = useState(false);
+  const [disableAutoExpiry, setDisableAutoExpiry] = useState<boolean | null>(null);
 
   // Refs to track if date/time pickers are open
   const rideDateRef = useRef<HTMLInputElement>(null);
@@ -186,9 +186,12 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
       const userData: any = await authApi.getCurrentUser();
       if (userData?.profile?.disableAutoExpiry) {
         setDisableAutoExpiry(true);
+      } else {
+        setDisableAutoExpiry(false);
       }
     } catch (error) {
-      // Ignore errors, use default
+      // Default to false (auto-expiry enabled) on error
+      setDisableAutoExpiry(false);
     }
   };
 
@@ -771,7 +774,7 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
               {rideToEdit ? 'Update your ride details' : 'Share your ride or request a ride from the community'}
             </DialogDescription>
           </DialogHeader>
-          {!disableAutoExpiry && (
+          {disableAutoExpiry === false && (
             <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-sm text-blue-800">
               <p className="font-medium mb-1">ℹ️ Auto-Expiry Notice</p>
               <p>This ride will automatically expire 24 hours after the scheduled time if you don't select expiry date below. You can re-activate in my rides tab.</p>
@@ -913,7 +916,7 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
             </div>
 
             {/* Optional Expiry Date and Time (24-hour format) */}
-            {!disableAutoExpiry && (
+            {disableAutoExpiry === false && (
               <div className="grid grid-cols-1 gap-[1.25rem] sm:grid-cols-2 sm:gap-[1rem]">
                 <div className="flex flex-col gap-[0.5rem]">
                   <Label htmlFor="expiry_date">Expiry Date (Optional)</Label>
@@ -1058,12 +1061,12 @@ export const CreateRideDialog = ({ children, rideToEdit, open: controlledOpen, o
                         if (e.target.checked) {
                           setFormData({
                             ...formData,
-                            recurring_days: [...formData.recurring_days, day],
+                            recurring_days: sortDays([...formData.recurring_days, day]),
                           });
                         } else {
                           setFormData({
                             ...formData,
-                            recurring_days: formData.recurring_days.filter((d) => d !== day),
+                            recurring_days: sortDays(formData.recurring_days.filter((d) => d !== day)),
                           });
                         }
                       }}

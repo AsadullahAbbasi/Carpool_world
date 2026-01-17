@@ -332,7 +332,6 @@ export async function sendCommunityApprovalEmail(
               <p>You can now:</p>
               <ul>
                 <li>Start managing your community</li>
-                // <li>Invite members to join</li>
                 <li>Post rides within your community</li>
                 <li>Build connections with community members</li>
               </ul>
@@ -919,8 +918,6 @@ export async function sendNICApprovalEmail(
 
     if (result.error) {
       console.error('❌ Resend Error (NIC Approval):', result.error);
-    } else {
-      console.log('✅ NIC approval email sent successfully:', result.data);
     }
   } catch (error) {
     console.error('💥 Fatal Error sending NIC approval email:', error);

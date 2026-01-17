@@ -17,6 +17,7 @@ import ReviewDialog from './ReviewDialog';
 import ReviewsList from './ReviewsList';
 import ProfileDialog from './ProfileDialog';
 import { openWhatsApp } from '@/lib/whatsapp';
+import { sortDays } from '@/lib/utils';
 
 
 interface Ride {
@@ -173,6 +174,53 @@ const RidesList = ({
       return 0;
     });
     return sorted;
+  };
+
+  // Helper function to check if ride should be included based on filters
+  const shouldIncludeRide = (ride: any, filters: {
+    filterType: string;
+    selectedCommunity?: string | null;
+    searchQuery?: string;
+  }): boolean => {
+    // Apply verification filter
+    if (filters.filterType === 'verified' && !ride.profiles?.nic_verified) {
+      return false;
+    }
+
+    // Apply gender preference filter
+    if (filters.filterType === 'girls_only' || filters.filterType === 'boys_only' || filters.filterType === 'both') {
+      if (ride.gender_preference !== filters.filterType) {
+        return false;
+      }
+    }
+
+    // Apply type filter
+    if (filters.filterType === 'offering' || filters.filterType === 'seeking') {
+      if (ride.type !== filters.filterType) {
+        return false;
+      }
+    }
+
+    // Apply community filter
+    if (filters.selectedCommunity) {
+      if (!ride.community_ids || !ride.community_ids.includes(filters.selectedCommunity)) {
+        return false;
+      }
+    }
+
+    // Apply search filter
+    if (filters.searchQuery) {
+      const lowerQuery = filters.searchQuery.toLowerCase();
+      const matchesSearch =
+        (ride.start_location || '').toLowerCase().includes(lowerQuery) ||
+        (ride.end_location || '').toLowerCase().includes(lowerQuery) ||
+        (ride.description || '').toLowerCase().includes(lowerQuery);
+      if (!matchesSearch) {
+        return false;
+      }
+    }
+
+    return true;
   };
 
   const fetchRides = async (skipLoadingState = false) => {
@@ -404,49 +452,11 @@ const RidesList = ({
                     const exists = prev.some((r) => r.id === ride.id);
                     if (exists) return prev;
 
-                    // Apply current filters (use refs to get latest values)
+                    // Apply current filters using helper function
                     const currentFilters = filterRefs.current;
-                    let shouldInclude = true;
-
-                    // Apply verification filter
-                    if (currentFilters.filterType === 'verified' && !ride.profiles?.nic_verified) {
-                      shouldInclude = false;
+                    if (!shouldIncludeRide(ride, currentFilters)) {
+                      return prev;
                     }
-
-                    // Apply gender preference filter
-                    if (currentFilters.filterType === 'girls_only' || currentFilters.filterType === 'boys_only' || currentFilters.filterType === 'both') {
-                      if (ride.gender_preference !== currentFilters.filterType) {
-                        shouldInclude = false;
-                      }
-                    }
-
-                    // Apply type filter
-                    if (currentFilters.filterType === 'offering' || currentFilters.filterType === 'seeking') {
-                      if (ride.type !== currentFilters.filterType) {
-                        shouldInclude = false;
-                      }
-                    }
-
-                    // Apply community filter
-                    if (currentFilters.selectedCommunity) {
-                      if (!ride.community_ids || !ride.community_ids.includes(currentFilters.selectedCommunity)) {
-                        shouldInclude = false;
-                      }
-                    }
-
-                    // Apply search filter
-                    if (currentFilters.searchQuery) {
-                      const lowerQuery = currentFilters.searchQuery.toLowerCase();
-                      const matchesSearch =
-                        (ride.start_location || '').toLowerCase().includes(lowerQuery) ||
-                        (ride.end_location || '').toLowerCase().includes(lowerQuery) ||
-                        (ride.description || '').toLowerCase().includes(lowerQuery);
-                      if (!matchesSearch) {
-                        shouldInclude = false;
-                      }
-                    }
-
-                    if (!shouldInclude) return prev;
 
                     // Add to top and apply sort
                     const newRides = [ride, ...prev];
@@ -470,47 +480,9 @@ const RidesList = ({
                   setRides((prev) => {
                     const index = prev.findIndex((r) => r.id === ride.id);
 
-                    // Check if ride should be included with current filters (use refs to get latest values)
+                    // Check if ride should be included with current filters using helper function
                     const currentFilters = filterRefs.current;
-                    let shouldInclude = true;
-
-                    // Apply verification filter
-                    if (currentFilters.filterType === 'verified' && !ride.profiles?.nic_verified) {
-                      shouldInclude = false;
-                    }
-
-                    // Apply gender preference filter
-                    if (currentFilters.filterType === 'girls_only' || currentFilters.filterType === 'boys_only' || currentFilters.filterType === 'both') {
-                      if (ride.gender_preference !== currentFilters.filterType) {
-                        shouldInclude = false;
-                      }
-                    }
-
-                    // Apply type filter
-                    if (currentFilters.filterType === 'offering' || currentFilters.filterType === 'seeking') {
-                      if (ride.type !== currentFilters.filterType) {
-                        shouldInclude = false;
-                      }
-                    }
-
-                    // Apply community filter
-                    if (currentFilters.selectedCommunity) {
-                      if (!ride.community_ids || !ride.community_ids.includes(currentFilters.selectedCommunity)) {
-                        shouldInclude = false;
-                      }
-                    }
-
-                    // Apply search filter
-                    if (currentFilters.searchQuery) {
-                      const lowerQuery = currentFilters.searchQuery.toLowerCase();
-                      const matchesSearch =
-                        (ride.start_location || '').toLowerCase().includes(lowerQuery) ||
-                        (ride.end_location || '').toLowerCase().includes(lowerQuery) ||
-                        (ride.description || '').toLowerCase().includes(lowerQuery);
-                      if (!matchesSearch) {
-                        shouldInclude = false;
-                      }
-                    }
+                    const shouldInclude = shouldIncludeRide(ride, currentFilters);
 
                     if (index === -1) {
                       // Ride not in filtered list
@@ -666,6 +638,8 @@ const RidesList = ({
   // Helper functions for expiry
   const isRideExpired = (ride: Ride): boolean => {
     if (ride.is_archived) return true;
+    // Respect user setting to disable auto-expiry
+    if (ride.profiles?.disable_auto_expiry) return false;
     const expiresAt = new Date(ride.expires_at);
     return expiresAt < new Date();
   };
@@ -1110,7 +1084,7 @@ const RidesList = ({
                             </Badge>
                           )}
                           {/* Expiration countdown badge */}
-                          {!showOnlyMyRides && !isRideExpired(ride) && getTimeRemaining(ride).minutes <= 30 && (
+                          {!showOnlyMyRides && !isRideExpired(ride) && !ride.profiles?.disable_auto_expiry && getTimeRemaining(ride).minutes <= 30 && (
                             <Badge variant="outline" className={`text-xs ${getTimeRemaining(ride).minutes <= 5 ? 'bg-red-100 text-red-800 border-red-300' : 'bg-yellow-100 text-yellow-800 border-yellow-300'}`}>
                               ⏱️ Expires in {getTimeRemaining(ride).minutes}m
                             </Badge>
@@ -1231,7 +1205,7 @@ const RidesList = ({
                     {ride.recurring_days && ride.recurring_days.length > 0 && (
                       <div className="flex flex-wrap gap-1 items-center">
                         <span className="text-xs font-medium">Recurring:</span>
-                        {ride.recurring_days.map((day) => (
+                        {sortDays(ride.recurring_days).map((day) => (
                           <Badge key={day} variant="outline" className="text-xs">
                             {day.slice(0, 3)}
                           </Badge>

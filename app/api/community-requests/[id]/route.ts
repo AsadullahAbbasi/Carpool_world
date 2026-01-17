@@ -22,7 +22,8 @@ function isAdmin(req: NextRequest): boolean {
 
   try {
     const jwt = require('jsonwebtoken');
-    const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+    const JWT_SECRET = process.env.JWT_SECRET;
+    if (!JWT_SECRET) throw new Error('JWT_SECRET not configured');
     const decoded = jwt.verify(token, JWT_SECRET);
     return decoded.userId === 'admin' || decoded.email === process.env.ADMIN_EMAIL;
   } catch (error: any) {
@@ -70,7 +71,8 @@ export async function PUT(
     if (token) {
       try {
         const jwt = require('jsonwebtoken');
-        const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+        const JWT_SECRET = process.env.JWT_SECRET;
+        if (!JWT_SECRET) throw new Error('JWT_SECRET not configured');
         const decoded = jwt.verify(token, JWT_SECRET);
         adminUserId = decoded.userId || 'admin';
       } catch (error) {
@@ -117,7 +119,7 @@ export async function PUT(
       try {
         const user = await User.findById(request.requestedBy).lean();
         const profile = await Profile.findOne({ userId: request.requestedBy }).lean();
-        
+
         if (user && user.email) {
           await sendCommunityApprovalEmail(
             user.email,
@@ -148,7 +150,7 @@ export async function PUT(
       try {
         const user = await User.findById(request.requestedBy).lean();
         const profile = await Profile.findOne({ userId: request.requestedBy }).lean();
-        
+
         if (user && user.email) {
           await sendCommunityRejectionEmail(
             user.email,

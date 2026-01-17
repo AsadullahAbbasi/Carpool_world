@@ -22,7 +22,8 @@ function isAdmin(req: NextRequest): boolean {
 
   try {
     const jwt = require('jsonwebtoken');
-    const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+    const JWT_SECRET = process.env.JWT_SECRET;
+    if (!JWT_SECRET) throw new Error('JWT_SECRET not configured');
     const decoded = jwt.verify(token, JWT_SECRET);
     // Check if user is admin (userId === 'admin' or email matches admin email)
     return decoded.userId === 'admin' || decoded.email === process.env.ADMIN_EMAIL;
@@ -110,7 +111,13 @@ export const GET = async (req: NextRequest) => {
     }
 
     const jwt = require('jsonwebtoken');
-    const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+    const JWT_SECRET = process.env.JWT_SECRET;
+    if (!JWT_SECRET) {
+      return NextResponse.json(
+        { error: 'Server misconfiguration' },
+        { status: 500 }
+      );
+    }
     let decoded: any;
     try {
       decoded = jwt.verify(token, JWT_SECRET);

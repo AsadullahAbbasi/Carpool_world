@@ -29,6 +29,7 @@ function transformRide(ride: any, profile?: any) {
     profiles: profile ? {
       full_name: profile.fullName || profile.full_name,
       nic_verified: profile.nicVerified !== undefined ? profile.nicVerified : (profile.nic_verified !== undefined ? profile.nic_verified : false),
+      disable_auto_expiry: profile.disableAutoExpiry || profile.disable_auto_expiry || false,
     } : null,
   };
 }
@@ -85,15 +86,27 @@ export async function GET(req: NextRequest) {
             isArchived: false,
           }).toArray();
 
+          if (expiredRides.length === 0) return;
+
+          // Batch fetch all profiles to avoid N+1 query
+          const userIds = expiredRides.map(ride => ride.userId);
+          const profiles = await Profile.find({ userId: { $in: userIds } }).lean();
+          const profileMap = new Map(profiles.map(p => [p.userId, p]));
+
           for (const ride of expiredRides) {
             const rideId = ride._id.toString();
             // Only notify once per ride expiration
             if (!trackedExpiredRides.has(rideId)) {
-              trackedExpiredRides.add(rideId);
 
-              // Fetch profile and user for the ride
-              const profile = await Profile.findOne({ userId: ride.userId }).lean();
-              const user = await User.findById(ride.userId).lean();
+              // Get profile from map (already fetched)
+              const profile = profileMap.get(ride.userId);
+
+              // If user has disabled auto-expiry, SKIP this ride
+              if (profile?.disableAutoExpiry) {
+                continue;
+              }
+
+              trackedExpiredRides.add(rideId);
               const transformedRide = transformRide(ride, profile || undefined);
 
               // Send expiration event to SSE clients
@@ -135,7 +148,6 @@ export async function GET(req: NextRequest) {
           controller.close();
         } catch (error) {
           // Ignore error if controller is already closed
-          // console.error('Error closing controller:', error);
         }
       };
 
