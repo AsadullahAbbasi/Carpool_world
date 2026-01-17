@@ -1,7 +1,15 @@
 import { getServerUser, getServerRides, getServerCommunities, getServerUserCommunities } from '@/lib/server-data';
 import DashboardClient from '@/components/DashboardClient';
+import { Metadata } from 'next';
 
 export const dynamic = 'force-dynamic';
+
+export const metadata: Metadata = {
+  title: 'Dashboard',
+  alternates: {
+    canonical: '/dashboard',
+  },
+};
 
 // Loading skeleton for Suspense boundary
 function DashboardSkeleton() {

@@ -19,6 +19,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://www.ridesharee.com'),
   title: {
     default: 'RideSharee - Rideshare App',
     template: '%s | RideSharee',
@@ -106,7 +107,7 @@ export default function RootLayout({
                     url: 'https://www.ridesharee.com',
                     potentialAction: {
                       '@type': 'SearchAction',
-                      target: 'https://www.ridesharee.com/dashboard?tab=rides&q={search_term_string}',
+                      target: 'https://www.ridesharee.com/dashboard?q={search_term_string}',
                       'query-input': 'required name=search_term_string',
                     },
                   },
@@ -117,14 +118,8 @@ export default function RootLayout({
                       {
                         '@type': 'SiteNavigationElement',
                         position: 1,
-                        name: 'Browse Rides',
-                        url: 'https://www.ridesharee.com/dashboard?tab=rides',
-                      },
-                      {
-                        '@type': 'SiteNavigationElement',
-                        position: 2,
-                        name: 'Communities',
-                        url: 'https://www.ridesharee.com/dashboard?tab=communities',
+                        name: 'Dashboard',
+                        url: 'https://www.ridesharee.com/dashboard',
                       },
                       {
                         '@type': 'SiteNavigationElement',

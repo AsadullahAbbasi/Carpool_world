@@ -89,7 +89,7 @@ export async function GET(req: NextRequest) {
           if (expiredRides.length === 0) return;
 
           // Batch fetch all profiles to avoid N+1 query
-          const userIds = expiredRides.map(ride => ride.userId);
+          const userIds = expiredRides.map((ride: any) => ride.userId);
           const profiles = await Profile.find({ userId: { $in: userIds } }).lean();
           const profileMap = new Map(profiles.map(p => [p.userId, p]));
 
