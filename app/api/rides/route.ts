@@ -107,12 +107,17 @@ export const GET = async (req: NextRequest) => {
       );
     }
 
-    // Fetch profiles for each ride and filter by expiry if not in "My Rides"
+    // Bulk fetch profiles for all rides
+    const userIds = Array.from(new Set(rides.map((ride: any) => ride.userId)));
+    const profiles = await Profile.find({ userId: { $in: userIds } }).lean();
+    const profileMap = new Map(profiles.map(p => [p.userId, p]));
+
+    // Transform rides and apply expiry filtering
     const now = new Date();
     const ridesWithProfiles = [];
 
     for (const ride of rides) {
-      const profile = await Profile.findOne({ userId: ride.userId }).lean();
+      const profile = profileMap.get(ride.userId);
       const transformed = transformRide(ride, profile || undefined);
 
       // If not "My Rides" view, filter out expired rides UNLESS disableAutoExpiry is true

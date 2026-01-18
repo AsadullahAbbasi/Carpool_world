@@ -24,9 +24,19 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
+  const [showResendVerification, setShowResendVerification] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (cooldown > 0) {
+      const timer = setTimeout(() => setCooldown(cooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [cooldown]);
 
   useEffect(() => {
     // Check URL for password recovery token
@@ -143,6 +153,7 @@ const Auth = () => {
         } catch (loginError: any) {
           // Check if it's an email verification error
           if (loginError.message?.includes('Email not verified') || loginError.message?.includes('email')) {
+            setShowResendVerification(true);
             toast({
               title: 'Email not verified',
               description: 'Please verify your email address before logging in. Check your inbox for the verification link.',
@@ -202,6 +213,39 @@ const Auth = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    if (!email || !password) {
+      toast({
+        title: 'Error',
+        description: 'Please enter your email and password to resend the verification link.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setResending(true);
+    try {
+      const response = await authApi.resendVerification(email, password);
+
+      // Send the email using the new token
+      await sendVerificationEmail(email, response.token);
+
+      toast({
+        title: 'Verification email sent!',
+        description: 'Please check your inbox (and spam folder) for the new verification link.',
+      });
+      setCooldown(120); // Start 120s (2m) cooldown
+    } catch (error: any) {
+      toast({
+        title: 'Failed to resend',
+        description: error.message || 'Failed to resend verification email. Please try again later.',
+        variant: 'destructive',
+      });
+    } finally {
+      setResending(false);
     }
   };
 
@@ -335,6 +379,29 @@ const Auth = () => {
             >
               {loading ? 'Loading...' : isPasswordRecovery ? 'Update Password' : isForgotPassword ? 'Send Reset Link' : isLogin ? 'Log In' : 'Sign Up'}
             </Button>
+            {showResendVerification && (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full border-primary text-primary hover:bg-primary/5"
+                onClick={handleResendVerification}
+                disabled={resending || cooldown > 0}
+              >
+                {resending ? 'Sending...' : cooldown > 0 ? (
+                  `Resend in ${Math.floor(cooldown / 60)}:${(cooldown % 60).toString().padStart(2, '0')}`
+                ) : 'Resend Verification Email'}
+              </Button>
+            )}
+            {showResendVerification && (
+              <div className="text-[11px] text-muted-foreground text-center mt-2 px-2 bg-muted/30 py-2 rounded border border-dashed">
+                <p className="font-semibold mb-1">Didn't receive the email?</p>
+                <ul className="text-left list-disc list-inside space-y-0.5">
+                  <li>Check your <strong>Spam or Junk</strong> folder.</li>
+                  <li>Wait 2-3 minutes for the delivery.</li>
+                  <li>Ensure the email above is correct.</li>
+                </ul>
+              </div>
+            )}
           </form>
           <div className="mt-4 text-center text-sm space-y-2">
             {!isPasswordRecovery && (

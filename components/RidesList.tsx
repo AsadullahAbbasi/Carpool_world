@@ -869,10 +869,11 @@ const RidesList = ({
   };
 
   if (loading) {
+    const skeletonCount = showOnlyMyRides ? 1 : 6;
     return (
       /* Mobile-first: stack on mobile, grid on tablet+ */
       <div className="grid gap-[1rem] sm:grid-cols-2 lg:grid-cols-3">
-        {[1, 2, 3, 4, 5, 6].map((i) => (
+        {Array.from({ length: skeletonCount }).map((_, i) => (
           <Card key={i}>
             <CardHeader>
               <div className="h-[1.25rem] bg-muted/60 rounded w-1/3 mb-[0.5rem] animate-pulse-slow sm:h-[1rem]"></div>

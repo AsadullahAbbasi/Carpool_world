@@ -84,7 +84,7 @@ export const authApi = {
     return handleResponse(response);
   },
 
-  resendVerification: async () => {
+  resendVerification: async (email?: string, password?: string) => {
     const token = getAuthToken();
     const response = await fetch(`${API_BASE}/auth/resend-verification`, {
       method: 'POST',
@@ -93,6 +93,7 @@ export const authApi = {
         ...(token && { Authorization: `Bearer ${token}` }),
       },
       credentials: 'include',
+      body: email && password ? JSON.stringify({ email, password }) : undefined,
     });
     return handleResponse<{ token: string; email: string; message: string }>(response);
   },
