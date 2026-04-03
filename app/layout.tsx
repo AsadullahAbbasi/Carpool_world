@@ -72,6 +72,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head >
+      <meta name="facebook-domain-verification" content="w8ver3x5yvk0nb77taus0bnz1c9kv1" />
+      </head>
       <body className={inter.className}>
         <div className="grid-background" aria-hidden="true" />
         <div className="content-layer">
